@@ -95,7 +95,8 @@ const deviceBatchRangeResponseSchema = t.Object({
       data: t.Array(
         t.Object({
           monitorValue: t.String(),
-          monitorTime: t.String()
+          monitorTime: t.String(),
+          monitorItem: t.String()
         })
       )
     })
@@ -468,24 +469,29 @@ export const deviceRoutes = new Elysia({
 
       const results = await Promise.all(
         body.deviceList.map(async (device) => {
+          console.log(`[batch] Querying deviceId=${device.deviceId}, monitorItem=${device.monitorItem}, start=${startGmtPlus7}, end=${endGmtPlus7}`);
+
           const rows = await database
             .select({
               monitorValue: deviceData.monitorValue,
-              monitorTime: deviceData.monitorTime
+              monitorTime: deviceData.monitorTime,
+              monitorItem: deviceData.monitorItem
             })
             .from(deviceData)
             .where(
-              sql`${deviceData.deviceId} = ${device.deviceId} AND ${
-                deviceData.monitorTime
-              } BETWEEN ${startGmtPlus7} AND ${endGmtPlus7}`
+              sql`${deviceData.deviceId} = ${device.deviceId} AND ${deviceData.monitorItem} = ${device.monitorItem} AND ${deviceData.monitorTime} BETWEEN ${startGmtPlus7} AND ${endGmtPlus7}`
             )
-            .orderBy(deviceData.monitorTime)
+            .orderBy(sql`${deviceData.monitorTime} DESC`)
+            .limit(100);
+
+          console.log(`[batch] Found ${rows.length} rows for deviceId=${device.deviceId}, sample:`, rows.slice(0, 2));
 
           return {
             deviceId: device.deviceId,
             data: rows.map((row) => ({
               monitorValue: row.monitorValue ?? '',
-              monitorTime: row.monitorTime ?? ''
+              monitorTime: row.monitorTime ?? '',
+              monitorItem: row.monitorItem ?? ''
             }))
           }
         })
