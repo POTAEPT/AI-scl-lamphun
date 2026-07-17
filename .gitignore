@@ -62,6 +62,8 @@ dist-ssr
 *.sw?
 
 .env
+.pi/
+.playwright-mcp/
 
 # Project Markdown Docs
 pm_roadmap.md

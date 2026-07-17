@@ -51,7 +51,6 @@ const StationPage: React.FC = () => {
 
   // State ข้อมูลสถานีจาก API
   const [stationInfo, setStationInfo] = useState<DeviceInfoResponse | null>(null);
-  const [deviceId, setDeviceId] = useState<string>('');
 
   // State ข้อมูลประวัติสำหรับกราฟ
   const [waterHistory, setWaterHistory] = useState<DeviceRangeData[]>([]);
@@ -70,8 +69,6 @@ const StationPage: React.FC = () => {
       try {
         const envDeviceId = import.meta.env.VITE_API_DEVICE_ID || 'MOCK_DEVICE_001';
         const secretKey = import.meta.env.VITE_API_deviceSecretKey || 'MOCK_KEY';
-        setDeviceId(envDeviceId);
-
         const endTime = Date.now();
         const startTime = endTime - 24 * 60 * 60 * 1000; // ย้อนหลัง 24 ชั่วโมง
 
@@ -114,14 +111,14 @@ const StationPage: React.FC = () => {
     }
     return [
       {
-        id: deviceId,
+        id: stationInfo.customName || stationInfo.monitorName || 'station',
         name: stationInfo.customName || stationInfo.monitorName || 'Unknown Station',
         lat: Number(stationInfo.deviceLocation?.latitude) || 18.575,
         lng: Number(stationInfo.deviceLocation?.longitude) || 99.008,
         status: 'active' as const,
       },
     ];
-  }, [stationInfo, deviceId]);
+  }, [stationInfo]);
 
   // --- แปลงข้อมูลประวัติมาเป็นรูปแบบที่กราฟต้องการ ---
   const waterChartData: ChartDataPoint[] = useMemo(() => {
