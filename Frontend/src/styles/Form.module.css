@@ -8,29 +8,29 @@
 }
 
 .navbar {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding: 15px 43px;
-  gap: 10px;
-  width: 100%;
-  height: 77px;
-  background: rgba(0, 0, 0, 0.5);
-  box-sizing: border-box;
-  flex-shrink: 0;
-  z-index: 10;
-  position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 15px 43px;
+    gap: 10px;
+    width: 100%;
+    height: 77px;
+    background: rgba(0, 0, 0, 0.5);
+    box-sizing: border-box;
+    flex-shrink: 0;
+    z-index: 10;
+    position: relative;
 }
 
 .navLogoText {
-  font-family: var(--font-ui);
-  font-style: normal;
-  font-weight: 700;
-  font-size: 24px;
-  line-height: 32px;
-  text-align: center;
-  color: var(--color-text-onBrand);
-  margin: 0;
+    font-family: var(--font-ui);
+    font-style: normal;
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 32px;
+    text-align: center;
+    color: var(--color-text-onBrand);
+    margin: 0;
 }
 
 .navbar {
