@@ -3,6 +3,7 @@ import { cors } from "@elysiajs/cors";
 import { authRoutes } from "./api/v2/auth";
 import { deviceRoutes } from "./api/v2/device";
 import { userRoutes } from "./api/v2/user";
+import { stationRoutes } from "./api/v2/stations";
 import { db, initialize } from "./db/database";
 import { startMainStreamCorrectionSync, startMainStreamLatestSync } from "./services/mainStream";
 import { staticPlugin } from "@elysiajs/static";
@@ -42,6 +43,7 @@ try {
     .use(deviceRoutes)
     .use(authRoutes)
     .use(userRoutes)
+    .use(stationRoutes)
 
     // 👇 SPA Fallback สำหรับ React/Vite (ต้องอยู่ล่างสุดของ Route เสมอ)
     .get("*", async ({ path }) => {

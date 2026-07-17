@@ -8,52 +8,52 @@ function App() {
     import.meta.env.DEV && import.meta.env.VITE_BYPASS_LOGIN === 'true';
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(BYPASS_LOGIN);
-  
+
   const [userId, setUserId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   void userId;
 
-  const checkSession = async () => {
+  useEffect(() => {
     if (BYPASS_LOGIN) {
       setIsLoading(false);
       return;
     }
 
-    try {
-      const token = localStorage.getItem('accessToken');
+    const checkSession = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
 
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-
-      const res = await fetch('/api/v2/auth/me', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
+        if (!token) {
+          setIsLoading(false);
+          return;
         }
-      });
 
-      if (res.ok) {
-         const userData = await res.json();
-         setUserId(userData.id);
-        setIsLoggedIn(true);
-      } else {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        const res = await fetch('/api/v2/auth/me', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          const userData = await res.json();
+          setUserId(userData.id);
+          setIsLoggedIn(true);
+        } else {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          setIsLoggedIn(false);
+        }
+      } catch (error) {
+        console.error(error);
         setIsLoggedIn(false);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error(error);
-      setIsLoggedIn(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  useEffect(() => {
     checkSession();
-  }, []);
+  }, [BYPASS_LOGIN]);
 
   const handleLoginSuccess = (id: number) => {
      setUserId(id);

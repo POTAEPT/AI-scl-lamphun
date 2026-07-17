@@ -419,7 +419,7 @@ export const deviceRoutes = new Elysia({
     '/',
     async ({ body }) => {
       const database = await db
-      const { deviceId, start, end } = body
+      const { deviceId, monitorItem, start, end } = body
 
       const startTime = Math.min(start, end)
       const endTime = Math.max(start, end)
@@ -433,9 +433,7 @@ export const deviceRoutes = new Elysia({
         })
         .from(deviceData)
         .where(
-          sql`${deviceData.deviceId} = ${deviceId} AND ${
-            deviceData.monitorTime
-          } BETWEEN ${startGmtPlus7} AND ${endGmtPlus7}`
+          sql`${deviceData.deviceId} = ${deviceId} AND ${deviceData.monitorItem} = ${monitorItem} AND ${deviceData.monitorTime} BETWEEN ${startGmtPlus7} AND ${endGmtPlus7}`
         )
         .orderBy(deviceData.monitorTime)
 
