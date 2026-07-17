@@ -1,9 +1,9 @@
 // src/pages/SettingsPage.tsx
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import StationTable from '../components/StationTable';
 import AddSensorModal from '../components/AddSensorModal';
 import EditStationModal from '../components/EditStationModal';
-import { DeviceService, type StationDeviceInfo } from '../service/deviceService';
+import { DeviceService } from '../service/deviceService';
 import styles from '../styles/SettingsPage.module.css';
 
 interface SettingsStationData {
@@ -92,10 +92,10 @@ const SettingsPage = () => {
 
   return (
     <div className={styles.pageWrapper || ''} style={{ width: '100%' }}>
-      
+
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
          <h1 style={{ color: 'var(--color-text-primary)', fontSize: '24px', fontWeight: 700 }}>หน้าการตั้งค่า (Demo)</h1>
-         <button 
+         <button
             onClick={() => setIsAddModalOpen(true)}
             style={{ backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-page)', border: 'none', padding: '8px 24px', borderRadius: '20px', fontWeight: 600, cursor: 'pointer' }}
          >
@@ -110,16 +110,16 @@ const SettingsPage = () => {
       )}
 
       {/* Modal Add Sensor */}
-      <AddSensorModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+      <AddSensorModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => console.log("โหลดข้อมูลตารางใหม่หลังจากเพิ่มเสร็จ")}
       />
 
       {/* Modal Edit Sensor */}
-      <EditStationModal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
+      <EditStationModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
         station={editingStation}
         onSave={handleSaveEdit}
       />
