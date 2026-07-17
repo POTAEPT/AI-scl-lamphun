@@ -50,7 +50,6 @@ const StationPage: React.FC = () => {
   const [stationInfo, setStationInfo] = useState<DeviceInfoResponse | null>(null);
   const [stations, setStations] = useState<StationDeviceInfo[]>([]);
   const [latestStations, setLatestStations] = useState<StationLatestInfo[]>([]);
-  const [deviceId, setDeviceId] = useState<string>('');
 
   // State ข้อมูลประวัติสำหรับกราฟ
   const [waterHistory, setWaterHistory] = useState<DeviceRangeData[]>([]);
@@ -102,8 +101,6 @@ const StationPage: React.FC = () => {
         }
         const stationDevices = Array.from(uniqueStationsMap.values());
         setStations(stationDevices);
-        setDeviceId(latestData[0].deviceId);
-
         // Set station info from first station
         setStationInfo({
           monitorName: latestData[0].monitorItem,
