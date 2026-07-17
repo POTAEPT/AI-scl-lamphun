@@ -76,3 +76,15 @@ export const cacheEntries = pgTable("cache_entries", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 })
+
+export const stationDevices = pgTable(
+  "station_devices",
+  {
+    id: serial("id").primaryKey(),
+    stationId: varchar("station_id", { length: 100 }),
+    deviceId: integer("device_id").references(() => devices.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }),
+    latitude: varchar("latitude", { length: 100 }),
+    longitude: varchar("longitude", { length: 100 })
+  }
+)

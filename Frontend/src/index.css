@@ -26,13 +26,16 @@
     --color-status-critical: #ef4444;
     --color-status-device-offline: #6b7280;
 
-  --color-graf-rain:rgba(68, 181, 194, 0.62);
-  --color-graf-waterLevel:#155DFC;
+    --color-graf-rain: rgba(68, 181, 194, 0.62);
+    --color-graf-waterLevel: #155DFC;
 
-  /* --- Chart UI Colors --- */
-  --color-chart-grid: #2d3748;      /* สีเส้น Grid ในกราฟ */
-  --color-chart-axis: #8b95a5;      /* สีแกนและป้ายกำกับในกราฟ */
-  --color-chart-dot-fill: #ffffff;  /* สีจุดบนกราฟ (พื้นขาว) */
+    /* --- Chart UI Colors --- */
+    --color-chart-grid: #2d3748;
+    /* สีเส้น Grid ในกราฟ */
+    --color-chart-axis: #8b95a5;
+    /* สีแกนและป้ายกำกับในกราฟ */
+    --color-chart-dot-fill: #ffffff;
+    /* สีจุดบนกราฟ (พื้นขาว) */
 
 
     /* --- Typography (Fonts) --- */
@@ -46,14 +49,12 @@
 
     /*---Gradient Color*/
     --brand-secondary-blend: linear-gradient(90deg, #1e40af 0%, #000 100%);
-    --brand-panel-gradient: conic-gradient(
-        from 0deg at 50% 50%,
-        #1c398e -51.92deg,
-        #1e293b 57.44deg,
-        #1d293d 162.69deg,
-        #1c398e 308.08deg,
-        #1e293b 417.44deg
-    );
+    --brand-panel-gradient: conic-gradient(from 0deg at 50% 50%,
+            #1c398e -51.92deg,
+            #1e293b 57.44deg,
+            #1d293d 162.69deg,
+            #1c398e 308.08deg,
+            #1e293b 417.44deg);
 }
 
 /* 3. Global Reset */
@@ -71,21 +72,25 @@ body {
     font-weight: 700;
     line-height: 1.25;
 }
+
 .text-h2 {
     font-size: 20px;
     font-weight: 600;
     line-height: 1.25;
 }
+
 .text-h3 {
     font-size: 16px;
     font-weight: 500;
     line-height: 1.25;
 }
+
 .text-default {
     font-size: 14px;
     font-weight: 400;
     line-height: 1.5;
 }
+
 .text-caption {
     font-size: 12px;
     font-weight: 400;
@@ -99,11 +104,13 @@ body {
     font-size: 28px;
     font-weight: 700;
 }
+
 .text-data-md {
     font-family: var(--font-data);
     font-size: 14px;
     font-weight: 400;
 }
+
 .text-data-sm {
     font-family: var(--font-data);
     font-size: 12px;

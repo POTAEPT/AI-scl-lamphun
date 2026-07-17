@@ -1,117 +1,165 @@
 /* คอนเทนเนอร์ใหญ่ของหน้าเพจแดชบอร์ด  */
 .container {
-  padding: 20px 0;
-  background-color: #1E293B; 
-  color: #ffffff;
+    padding: 20px 0;
+    background-color: #1E293B;
+    color: #ffffff;
 }
 
 .topSection {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr; /* แบ่งพื้นที่ฝั่งการ์ด 60% ฝั่งตารางฝน 40% */
-  gap: 24px;
-  width: 1356px;                    /* ล็อกหน้ากว้างให้เท่ากับหัวข้อตารางด้านล่าง */
-  margin: 0 auto 30px auto;         /* จัดกึ่งกลางหน้าจอ */
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    /* แบ่งพื้นที่ฝั่งการ์ด 60% ฝั่งตารางฝน 40% */
+    gap: 24px;
+    width: 1356px;
+    /* ล็อกหน้ากว้างให้เท่ากับหัวข้อตารางด้านล่าง */
+    margin: 0 auto 30px auto;
+    /* จัดกึ่งกลางหน้าจอ */
 }
 
 .topLeft {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 .cardGrid {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
 }
 
 /* แถบตัวเลือกดรอปดาวน์ตั้งค่ากราฟ */
 .controlBar {
-  display: flex;
-  gap: 16px;
+    display: flex;
+    gap: 12px;
 }
 
 .selectInput {
-  background-color: #222b3a;
-  border: 1px solid #2d3748;
-  color: #ffffff;
-  padding: 8px 16px;
-  border-radius: 8px;
-  outline: none;
-  cursor: pointer;
-  font-size: 14px;
+    background-color: #222b3a;
+    border: 1px solid #2d3748;
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    font-size: 14px;
 }
 
 .topRight {
-  display: flex;
-  flex-direction: column;
+    flex: 1;
+    display: flex;
 }
 
-/* กล่องการ์ดแสดงผลเปอร์เซ็นต์ฝนรายสัปดาห์ */
 .probTableCard {
-  background: #222b3a;
-  border-radius: 16px;
-  padding: 20px;
-  border: 1px solid #2d3748;
+    background: var(--color-bg-surface);
+    border-radius: 10px;
+    border: 1px solid var(--color-border-line);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    height: fit-content;
+    max-height: 120px;
 }
 
 .probHeader {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 8px;
 }
 
-.probGrid {
-  display: grid;
-  grid-template-columns: 60px repeat(7, 1fr); /* คอลัมน์เวลา + คอลัมน์วันทั้ง 7 */
-  gap: 12px;
-  text-align: center;
-  font-size: 13px;
-  color: #8b95a5;
+.probGridHeader {
+    display: grid;
+    grid-template-columns: 56px repeat(7, 1fr);
+    gap: 6px 8px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    border-bottom: 1px solid var(--color-border-line);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .probTimeCol {
-  text-align: left;
-  font-weight: 500;
-  color: #ffffff;
+    text-align: left;
+    color: var(--color-text-primary);
+    font-size: 12px;
 }
 
-/* ดึงโครงสร้างชุดข้อมูลลูปสแปนให้ออกมาเรียงตัวตาม Grid แม่ */
+.probScrollArea {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.probScrollArea::-webkit-scrollbar {
+    width: 6px;
+}
+
+.probScrollArea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.probScrollArea::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+.probGrid {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    /* คอลัมน์เวลา + คอลัมน์วันทั้ง 7 */
+    gap: 12px;
+    text-align: center;
+    font-size: 13px;
+    color: #8b95a5;
+}
+
 .probRowContents {
-  display: contents;
-  color: #ffffff;
+    display: contents;
+    color: #ffffff;
 }
 
 /* --- ส่วนกลาง: พื้นที่วางกราฟเทคนิคัลระดับน้ำ --- */
 .chartSection {
-  width: 1356px;
-  margin: 0 auto 30px auto;
+    width: 1356px;
+    margin: 0 auto 30px auto;
 }
 
 .chartWrapper {
-  background: #222b3a;
-  border-radius: 16px;
-  padding: 24px;
-  border: 1px solid #2d3748;
+    background: #222b3a;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #2d3748;
 }
 
 /* --- ส่วนล่างสุด: พื้นที่วางตารางข้อมูลสถานีทรงแคปซูล --- */
 .tableSection {
-  width: 1356px;
-  margin: 0 auto;
+    width: 1356px;
+    margin: 0 auto;
 }
 
 @media (max-width: 1400px) {
-  .topSection, .chartSection, .tableSection {
-    width: 100%;
-    padding: 0 20px;
-    box-sizing: border-box;
-  }
+
+    .topSection,
+    .chartSection,
+    .tableSection {
+        width: 100%;
+        padding: 0 20px;
+        box-sizing: border-box;
+    }
 }
 
 @media (max-width: 1024px) {
-  .topSection {
-    grid-template-columns: 1fr;
-  }
+    .topSection {
+        grid-template-columns: 1fr;
+    }
+
+    .cardGrid {
+        flex-wrap: wrap;
+    }
 }

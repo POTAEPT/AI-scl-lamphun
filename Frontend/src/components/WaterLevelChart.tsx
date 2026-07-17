@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
 } from 'recharts';
+import type { DeviceRangeData } from '../service/deviceService';
 import styles from '../styles/WaterLevelChart.module.css';
 
 // --- Types & Interfaces ---
@@ -13,21 +14,36 @@ interface WaterData {
 }
 
 interface WaterLevelChartProps {
+  waterData?: DeviceRangeData[];
+  rainData?: DeviceRangeData[];
   onDataUpdate?: (water: number, rain: number) => void;
 }
 
 // --- Sub-components ---
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayload {
+  value: number;
+  name: string;
+  color: string;
+  unit?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}
+
+const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
 
   return (
     <div className={styles.customTooltip}>
       <p className={`${styles.tooltipTime} text-caption`}>เวลา {label} น.</p>
-      {payload.map((entry: any, index: number) => (
+      {payload.map((entry: TooltipPayload, index: number) => (
         <div key={index} className={styles.tooltipValueRow}>
           <div className={styles.tooltipDot} style={{ backgroundColor: entry.color }}></div>
           <span className={styles.tooltipValue}>
-            {entry.name}: {Number(entry.value).toFixed(3)} {entry.unit}
+            {entry.name}: {Number(entry.value).toFixed(3)} {entry.unit || ''}
           </span>
         </div>
       ))}
@@ -36,111 +52,105 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 // --- Main Component ---
-export const WaterLevelChart: React.FC<WaterLevelChartProps> = ({ onDataUpdate }) => {
-  const [data, setData] = useState<WaterData[]>([]);
-  const [/*currentWater*/, setCurrentWater] = useState<number | null>(null);
-  const dataRef = useRef<WaterData[]>([]);
-  
-  // ตัวแปรจำค่าฝนสะสม (เริ่มที่ 0) - กู้คืนจากโค้ดทีม
-  const accumulatedRainRef = useRef<number>(0);
-
-  const fetchLatestData = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/v2/device/latest`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deviceId: import.meta.env.VITE_API_DEVICE_ID,
-          deviceSecretKey: import.meta.env.VITE_API_deviceSecretKey,
-          monitorItem: import.meta.env.VITE_API_monitorItem,
-        })
-      });
-
-      const result = await response.json();
-      if (!result.monitorValue) return;
-
-      const waterVal = parseFloat(parseFloat(result.monitorValue).toFixed(3));
-      
-      // ถ้าไม่มีค่าจริงจาก API ให้สุ่มค่าเล็กๆ (0.0 - 0.5) เพื่อจำลองฝนตกปรอยๆ
-      const rainDelta = result.rainLevel 
-        ? parseFloat(parseFloat(result.rainLevel).toFixed(3)) 
-        : parseFloat((Math.random() * 0.5).toFixed(3));
-      
-      // บวกทบเข้าไปในยอดสะสมรวม
-      accumulatedRainRef.current += rainDelta;
-      const totalRain = parseFloat(accumulatedRainRef.current.toFixed(3));
-
-      const timeStr = new Date().toLocaleTimeString('th-TH', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-
-      setCurrentWater(waterVal);
-      // ส่งค่า totalRain (สะสม) ออกไปให้ DashboardPage
-      if (onDataUpdate) onDataUpdate(waterVal, totalRain);
-
-      const newItem: WaterData = { 
-        time: timeStr, 
-        waterLevel: waterVal, 
-        rainLevel: totalRain
-      };
-
-      const newData = [...dataRef.current, newItem].slice(-24);
-      
-      dataRef.current = newData;
-      setData(newData);
-    } catch (err) {
-      console.error("Failed to fetch water data:", err);
+export const WaterLevelChart: React.FC<WaterLevelChartProps> = ({
+  waterData = [],
+  rainData = [],
+  onDataUpdate
+}) => {
+  // Transform data from API format to chart format
+  const chartData: WaterData[] = useMemo(() => {
+    if (waterData.length === 0 && rainData.length === 0) {
+      return [];
     }
-  }, [onDataUpdate]);
 
+    // Combine and sort by time
+    const allData: WaterData[] = [];
+
+    // Add water data
+    for (const item of waterData) {
+      const date = new Date(item.monitorTime);
+      const timeStr = date.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      allData.push({
+        time: timeStr,
+        waterLevel: parseFloat(item.monitorValue) || 0,
+        rainLevel: 0
+      });
+    }
+
+    // Add rain data (accumulate within the same time point)
+    for (const item of rainData) {
+      const date = new Date(item.monitorTime);
+      const timeStr = date.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const existing = allData.find(d => d.time === timeStr);
+      if (existing) {
+        existing.rainLevel += parseFloat(item.monitorValue) || 0;
+      } else {
+        allData.push({
+          time: timeStr,
+          waterLevel: 0,
+          rainLevel: parseFloat(item.monitorValue) || 0
+        });
+      }
+    }
+
+    // Sort by time ascending and limit to last 24 entries
+    allData.sort((a, b) => a.time.localeCompare(b.time));
+    return allData.slice(-24);
+  }, [waterData, rainData]);
+
+  // Get latest values for DataCards
   useEffect(() => {
-    fetchLatestData();
-    // ดึงข้อมูลใหม่ทุก 10 วินาที
-    const interval = setInterval(fetchLatestData, 10000);
-    return () => clearInterval(interval);
-  }, [fetchLatestData]);
+    if (chartData.length === 0) return;
+
+    const latest = chartData[chartData.length - 1];
+    if (onDataUpdate) {
+      onDataUpdate(latest.waterLevel, latest.rainLevel);
+    }
+  }, [chartData, onDataUpdate]);
 
   return (
     <div className={styles.chartCard}>
-      {/* ส่วน header ถูกลบไปรวมกับหน้า DataCard ตามแบบ Figma แล้ว แต่ยังคงตรรกะ currentWater และการดึงข้อมูลไว้อยู่ */}
-      
       <div className={styles.chartBody}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 20, right: 20, left: -20, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 20, right: 20, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorRainfall" x1="0" y1="0" x2="0" y2="1">
-                {/* เปลี่ยนจากการใช้สี Hex เป็นการดึงตัวแปร CSS ของทีม */}
                 <stop offset="5%" stopColor="var(--color-graf-rain)" stopOpacity={0.3}/>
                 <stop offset="95%" stopColor="var(--color-graf-rain)" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={true} stroke="var(--color-text-secondary)" />
-            <XAxis 
-                dataKey="time" 
-                fontSize={12} 
-                stroke="var(--color-text-secondary)" 
-                tickLine={false} 
-                axisLine={{stroke: "var(--color-text-secondary)"}} 
+            <XAxis
+                dataKey="time"
+                fontSize={12}
+                stroke="var(--color-text-secondary)"
+                tickLine={false}
+                axisLine={{stroke: "var(--color-text-secondary)"}}
                 dy={10}
             />
-            <YAxis 
-                fontSize={12} 
-                stroke="var(--color-text-secondary)" 
-                tickLine={false} 
-                axisLine={false} 
+            <YAxis
+                fontSize={12}
+                stroke="var(--color-text-secondary)"
+                tickLine={false}
+                axisLine={false}
                 dx={-10}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-text-secondary)', strokeWidth: 1, strokeDasharray: '3 3' }} />
-            
-            <Area 
-              type="monotone" 
-              dataKey="rainLevel" 
+
+            <Area
+              type="monotone"
+              dataKey="rainLevel"
               name="ปริมาณน้ำฝนสะสม"
-              stroke="var(--color-graf-rain)" 
+              stroke="var(--color-graf-rain)"
               strokeWidth={2}
-              fillOpacity={1} 
-              fill="url(#colorRainfall)" 
+              fillOpacity={1}
+              fill="url(#colorRainfall)"
               activeDot={{ r: 6, fill: "var(--color-graf-rain)", stroke: "#fff", strokeWidth: 2 }}
               dot={{ r: 3, fill: "#fff", stroke: "var(--color-graf-rain)", strokeWidth: 2 }}
             />

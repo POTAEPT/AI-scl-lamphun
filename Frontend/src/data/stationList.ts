@@ -1,5 +1,4 @@
 // src/data/stationList.ts
-import type { StationData } from '../components/MapView';
+import type { StationData } from "../components/MapView";
 
-export const STATIC_STATIONS: StationData[] = [
-];
+export const STATIC_STATIONS: StationData[] = [];

@@ -19,6 +19,7 @@ const userUpdateResponseSchema = t.Object({
 const userOwnsResponseSchema = t.Object({
 	deviceInfo: t.Array(
 		t.Object({
+			deviceId: t.String(),
 			monitorName: t.String(),
 			customName: t.String(),
 			deviceLocation: t.Object({
@@ -62,6 +63,7 @@ export const userRoutes = new Elysia({
 			const database = await db
 			const rows = await database
 				.select({
+					deviceId: devices.deviceId,
 					monitorName: devices.monitorItem,
 					customName: devices.customName,
 					latitude: devices.latitude,
@@ -73,6 +75,7 @@ export const userRoutes = new Elysia({
 
 			return {
 				deviceInfo: rows.map((row) => ({
+					deviceId: row.deviceId ?? '',
 					monitorName: row.monitorName ?? '',
 					customName: row.customName ?? '',
 					deviceLocation: {

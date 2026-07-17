@@ -52,20 +52,20 @@ const authRoutes = new Elysia({
                 .limit(1)
 
             if (userRecords.length === 0) {
-                return new Response('Incorrect username or password', { status: 404 })
+                return new Response('User not found or password not set', { status: 404 })
             }
 
             const user = userRecords[0]
             const passwordHash = user.password
 
             if (!passwordHash) {
-                return new Response('Incorrect username or password', { status: 404 })
+                return new Response('User not found or password not set', { status: 404 })
             }
 
             const valid = await Bun.password.verify(password, passwordHash)
 
             if (!valid) {
-                return new Response('Incorrect username or password', { status: 401 })
+                return new Response('Invalid password', { status: 401 })
             }
 
             const accessToken = await jwt.sign(

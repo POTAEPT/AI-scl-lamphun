@@ -8,9 +8,6 @@ import type { StationData as MapStationData } from '../components/MapView';
 import { DeviceService, MockDeviceService, type DeviceInfoResponse, type DeviceRangeData } from '../service/deviceService';
 import styles from '../styles/StationPage.module.css';
 
-// *** ตัวสลับโหมด: true = ใช้ข้อมูลจำลอง, false = ต่อ API จริง ***
-const USE_MOCK_DATA = true;
-
 // --- Interface สำหรับข้อมูลกราฟที่ผ่านการแปลงแล้ว ---
 interface ChartDataPoint {
   time: string;
