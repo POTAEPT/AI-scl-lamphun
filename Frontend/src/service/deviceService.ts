@@ -38,13 +38,13 @@ export interface UserDeviceInfo {
 
 export interface RainProbabilityData {
   time: string;
-  sun: string;
-  mon: string;
-  tue: string;
-  wed: string;
-  thu: string;
-  fri: string;
-  sat: string;
+  sun: number;
+  mon: number;
+  tue: number;
+  wed: number;
+  thu: number;
+  fri: number;
+  sat: number;
 }
 
 export interface StationDeviceInfo {
@@ -242,11 +242,21 @@ export const MockDeviceService = {
   // ... (ส่วนที่เหลือคงเดิม) ...
   getRainProbability: async (): Promise<RainProbabilityData[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    return [
-        { time: '09:00', sun: '00', mon: '00', tue: '00', wed: '00', thu: '00', fri: '00', sat: '00' },
-        { time: '10:00', sun: '00', mon: '00', tue: '00', wed: '00', thu: '00', fri: '00', sat: '00' },
-        { time: '11:00', sun: '00', mon: '00', tue: '00', wed: '00', thu: '00', fri: '00', sat: '00' },
-        { time: '12:00', sun: '00', mon: '00', tue: '00', wed: '00', thu: '00', fri: '00', sat: '00' },
-    ];
+    const rows: RainProbabilityData[] = [];
+    for (let h = 1; h <= 24; h++) {
+      const hour = h % 24;
+      const base = hour >= 6 && hour <= 18 ? 30 : 10;
+      rows.push({
+        time: `${String(hour).padStart(2, '0')}:00`,
+        sun: Math.round(base + Math.random() * 40),
+        mon: Math.round(base + Math.random() * 40),
+        tue: Math.round(base + Math.random() * 40),
+        wed: Math.round(base + Math.random() * 40),
+        thu: Math.round(base + Math.random() * 40),
+        fri: Math.round(base + Math.random() * 40),
+        sat: Math.round(base + Math.random() * 40),
+      });
+    }
+    return rows;
   }
 };
