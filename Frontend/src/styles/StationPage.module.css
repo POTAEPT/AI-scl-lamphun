@@ -1,8 +1,3 @@
-/* ====================================================
-   StationPage.module.css
-   หน้าข้อมูลสถานี — Dark Theme ใช้ CSS Variables จาก index.css
-   ==================================================== */
-
 /* --- Page Container --- */
 .page {
   padding: 20px 0;
@@ -11,9 +6,7 @@
   min-height: 100vh;
 }
 
-/* ====================================================
-   ส่วนที่ 1: แผนที่ (ซ้าย) + Panel ค้นหาสถานี (ขวา)
-   ==================================================== */
+/* ===== ส่วนที่ 1: แผนที่ + Panel ===== */
 .topSection {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -24,7 +17,6 @@
   box-sizing: border-box;
 }
 
-/* กล่องครอบแผนที่ */
 .mapWrapper {
   background: #222b3a;
   border-radius: 16px;
@@ -33,7 +25,6 @@
   border: 1px solid #2d3748;
 }
 
-/* Panel ค้นหาสถานี (ขวา) */
 .searchPanel {
   background: #222b3a;
   border-radius: 16px;
@@ -44,11 +35,7 @@
   gap: 16px;
 }
 
-/* ช่องค้นหา */
-.searchBarWrapper {
-  position: relative;
-  width: 100%;
-}
+.searchBarWrapper { position: relative; width: 100%; }
 
 .searchIcon {
   position: absolute;
@@ -72,11 +59,8 @@
   box-sizing: border-box;
 }
 
-.searchInput::placeholder {
-  color: #8b95a5;
-}
+.searchInput::placeholder { color: #8b95a5; }
 
-/* ตารางรายการสถานีใน Panel */
 .panelTableHeader {
   display: flex;
   padding: 8px 16px;
@@ -86,15 +70,9 @@
   border-bottom: 1px solid #2d3748;
 }
 
-.panelColName {
-  flex: 1;
-}
+.panelColName   { flex: 1; }
+.panelColDetail { flex: 2; }
 
-.panelColDetail {
-  flex: 2;
-}
-
-/* แถวรายการสถานีใน Panel */
 .panelStationList {
   display: flex;
   flex-direction: column;
@@ -110,26 +88,12 @@
   transition: background-color 0.2s;
 }
 
-.panelStationRow:hover {
-  background-color: #2d3748;
-}
+.panelStationRow:hover { background-color: #2d3748; }
 
-.panelStationName {
-  flex: 1;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-}
+.panelStationName     { flex: 1; color: #ffffff; font-size: 14px; font-weight: 500; }
+.panelStationLocation { flex: 2; color: #8b95a5; font-size: 14px; }
 
-.panelStationLocation {
-  flex: 2;
-  color: #8b95a5;
-  font-size: 14px;
-}
-
-/* ====================================================
-   ส่วนที่ 2: ตารางข้อมูลสถานี (แถวทรงแคปซูล)
-   ==================================================== */
+/* ===== ส่วนที่ 2: ตาราง ===== */
 .tableSection {
   max-width: 1356px;
   margin: 0 auto 30px auto;
@@ -137,7 +101,6 @@
   box-sizing: border-box;
 }
 
-/* หัวคอลัมน์ตาราง */
 .tableHeader {
   display: flex;
   margin: 0 auto 10px auto;
@@ -148,11 +111,7 @@
   letter-spacing: 0.05em;
 }
 
-/* แถวข้อมูลแต่ละแถว (ทรงแคปซูล) */
-.tableBody {
-  display: flex;
-  flex-direction: column;
-}
+.tableBody  { display: flex; flex-direction: column; }
 
 .stationRow {
   height: 40px;
@@ -167,102 +126,30 @@
   width: 100%;
 }
 
-/* --- สัดส่วน Layout คอลัมน์ --- */
-.colSetting {
-  width: 5%;
-  display: flex;
-  align-items: center;
-}
+.colSetting { width: 5%;  display: flex; align-items: center; }
+.colName    { width: 20%; color: #ffffff; font-weight: 500; font-size: 14px; }
+.colTime    { width: 12%; color: #ffffff; font-size: 14px; }
+.colSignal  { width: 8%;  display: flex; justify-content: center; font-size: 16px; }
+.colBattery { width: 8%;  display: flex; justify-content: center; font-size: 16px; }
+.colWater   { width: 14%; text-align: right; font-weight: 600; font-size: 14px; font-family: var(--font-data); }
+.colRain    { width: 13%; text-align: right; font-weight: 600; font-size: 14px; font-family: var(--font-data); }
 
-.colName {
-  width: 20%;
-  color: #ffffff;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.colLocation {
-  width: 20%;
-  color: #8b95a5;
-  font-size: 13px;
-}
-
-.colTime {
-  width: 12%;
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.colSignal {
-  width: 8%;
-  display: flex;
-  justify-content: center;
-  font-size: 16px;
-}
-
-.colBattery {
-  width: 8%;
-  display: flex;
-  justify-content: center;
-  font-size: 16px;
-}
-
-.colWater {
-  width: 14%;
-  text-align: right;
-  font-weight: 600;
-  font-size: 14px;
-  font-family: var(--font-data);
-}
-
-.colRain {
-  width: 13%;
-  text-align: right;
-  font-weight: 600;
-  font-size: 14px;
-  font-family: var(--font-data);
-}
-
-/* ไอคอนฟันเฟือง */
 .btnSetting {
   color: #8b95a5;
   cursor: pointer;
   font-size: 15px;
   transition: color 0.2s;
 }
+.btnSetting:hover { color: #ffffff; }
 
-.btnSetting:hover {
-  color: #ffffff;
-}
+.statusNormal   { color: var(--color-status-normal); }
+.statusWarning  { color: var(--color-status-warning); }
+.statusCritical { color: var(--color-status-critical); }
+.iconGood       { color: var(--color-status-normal); }
+.iconBad        { color: var(--color-status-warning); }
+.iconCritical   { color: var(--color-status-critical); }
 
-/* สีสถานะ — ใช้ CSS Variables จาก index.css */
-.statusNormal {
-  color: var(--color-status-normal);
-}
-
-.statusWarning {
-  color: var(--color-status-warning);
-}
-
-.statusCritical {
-  color: var(--color-status-critical);
-}
-
-.iconGood {
-  color: var(--color-status-normal);
-}
-
-.iconBad {
-  color: var(--color-status-warning);
-}
-
-.iconCritical {
-  color: var(--color-status-critical);
-}
-
-/* ====================================================
-   ส่วนที่ 3: กราฟ 2 ช่อง (ระดับน้ำ + ฝน)
-   ==================================================== */
+/* ===== ส่วนที่ 3: กราฟ — ลำดับที่ 5+6 ===== */
 .chartSection {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -276,16 +163,56 @@
 .chartCard {
   background: #222b3a;
   border-radius: 16px;
-  padding: 24px;
+  padding: 20px 24px 24px;
   border: 1px solid #2d3748;
-  min-height: 300px;
 }
 
-.chartTitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffffff;
+/* Header row: Legend (ซ้าย) + Time Tabs (ขวา) — NEW */
+.chartHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chartLegendRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Time Range Tabs — ลำดับที่ 6 */
+.timeRangeTabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 40px;
+  padding: 3px;
+}
+
+.tabBtn {
+  padding: 5px 14px;
+  border: none;
+  background: transparent;
+  color: #8b95a5;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 40px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tabBtn:hover { color: #ffffff; }
+
+.tabActive {
+  background: #3b4a5e;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .chartBody {
@@ -293,11 +220,13 @@
   height: 250px;
 }
 
-/* Legend ใต้กราฟ */
+/* Legend items */
 .legendContainer {
   display: flex;
   justify-content: center;
   margin-top: 12px;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .legendItem {
@@ -311,7 +240,6 @@
   color: #8b95a5;
 }
 
-/* ข้อความเมื่อไม่มีข้อมูล */
 .emptyMessage {
   text-align: center;
   padding: 16px;
@@ -319,15 +247,7 @@
   font-size: 14px;
 }
 
-/* ====================================================
-   Responsive
-   ==================================================== */
+/* Responsive */
 @media (max-width: 1024px) {
-  .topSection {
-    grid-template-columns: 1fr;
-  }
-
-  .chartSection {
-    grid-template-columns: 1fr;
-  }
+  .topSection, .chartSection { grid-template-columns: 1fr; }
 }

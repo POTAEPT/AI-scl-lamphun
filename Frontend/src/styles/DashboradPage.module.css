@@ -8,12 +8,9 @@
 .topSection {
     display: grid;
     grid-template-columns: 1.5fr 1fr;
-    /* แบ่งพื้นที่ฝั่งการ์ด 60% ฝั่งตารางฝน 40% */
     gap: 24px;
     width: 1356px;
-    /* ล็อกหน้ากว้างให้เท่ากับหัวข้อตารางด้านล่าง */
     margin: 0 auto 30px auto;
-    /* จัดกึ่งกลางหน้าจอ */
 }
 
 .topLeft {
@@ -22,10 +19,12 @@
     gap: 20px;
 }
 
+/* ปรับ cardGrid ให้รองรับ 4 การ์ด — wrap อัตโนมัติ */
 .cardGrid {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
+    display: grid;
+    /* 4 คอลัมน์เท่ากัน */
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
 }
 
 /* แถบตัวเลือกดรอปดาวน์ตั้งค่ากราฟ */
@@ -112,7 +111,6 @@
 .probGrid {
     display: grid;
     grid-template-columns: 60px repeat(7, 1fr);
-    /* คอลัมน์เวลา + คอลัมน์วันทั้ง 7 */
     gap: 12px;
     text-align: center;
     font-size: 13px;
@@ -124,7 +122,7 @@
     color: #ffffff;
 }
 
-/* --- ส่วนกลาง: พื้นที่วางกราฟเทคนิคัลระดับน้ำ --- */
+/* --- ส่วนกลาง: กราฟ --- */
 .chartSection {
     width: 1356px;
     margin: 0 auto 30px auto;
@@ -135,16 +133,18 @@
     border-radius: 16px;
     padding: 24px;
     border: 1px solid #2d3748;
+    /* เพิ่มความสูงนิดนึงเพื่อให้ label Threshold ไม่ถูกตัด */
+    min-height: 340px;
 }
 
-/* --- ส่วนล่างสุด: พื้นที่วางตารางข้อมูลสถานีทรงแคปซูล --- */
+/* --- ส่วนล่างสุด: ตารางข้อมูล --- */
 .tableSection {
     width: 1356px;
     margin: 0 auto;
 }
 
+/* --- Responsive --- */
 @media (max-width: 1400px) {
-
     .topSection,
     .chartSection,
     .tableSection {
@@ -154,12 +154,20 @@
     }
 }
 
+@media (max-width: 1200px) {
+    .cardGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 1024px) {
     .topSection {
         grid-template-columns: 1fr;
     }
+}
 
+@media (max-width: 640px) {
     .cardGrid {
-        flex-wrap: wrap;
+        grid-template-columns: 1fr;
     }
 }
