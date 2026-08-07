@@ -1,9 +1,9 @@
 // src/pages/DashboardPage.tsx
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import StationTable from '../components/Dashboard-StationTable';
 import AlertCard from '../components/AlertCard';
-import { DeviceService, MockDeviceService, type DeviceRangeData, type RainProbabilityData } from '../service/deviceService';
+import { DeviceService, MockDeviceService, type DeviceRangeData } from '../service/deviceService';
 import WaterLevelChart from '../components/WaterLevelChart';
 import DataCard from '../components/DataCard';
 import { STATIC_STATIONS } from '../data/stationList';
@@ -31,10 +31,8 @@ const DashboardPage = () => {
 
     const [waterHistory, setWaterHistory] = useState<DeviceRangeData[]>([]);
     const [rainHistory,  setRainHistory]  = useState<DeviceRangeData[]>([]);
-    const [probData,     setProbData]     = useState<RainProbabilityData[]>([]);
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const probScrollRef = useRef<HTMLDivElement>(null);
 
     // --- คำนวณจำนวนสถานีวิกฤต/เฝ้าระวัง จาก waterHistory ---
     const alertCounts = useMemo(() => {
@@ -61,24 +59,22 @@ const DashboardPage = () => {
                 const endTime      = Date.now();
                 const startTime    = endTime - (24 * 60 * 60 * 1000);
 
-                let infoRes, waterRes, rainRes, probRes;
+                let infoRes, waterRes, rainRes;
 
                 if (USE_MOCK_DATA) {
                     infoRes = await MockDeviceService.getStationInfo(envDeviceId);
                     const results = await Promise.all([
                         MockDeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
                         MockDeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
-                        MockDeviceService.getRainProbability(),
                     ]);
-                    [waterRes, rainRes, probRes] = results;
+                    [waterRes, rainRes] = results;
                 } else {
                     infoRes = await DeviceService.getStationInfo(envDeviceId);
                     const results = await Promise.all([
                         DeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
                         DeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
-                        DeviceService.getRainProbability(),
                     ]);
-                    [waterRes, rainRes, probRes] = results;
+                    [waterRes, rainRes] = results;
                 }
 
                 if (infoRes) {
@@ -87,18 +83,6 @@ const DashboardPage = () => {
 
                 setWaterHistory(waterRes || []);
                 setRainHistory(rainRes   || []);
-                setProbData(probRes      || []);
-
-                setTimeout(() => {
-                    if (probScrollRef.current) {
-                        const bangkokNow = new Date().toLocaleString('en-US', {
-                            timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false,
-                        });
-                        const currentHour = parseInt(bangkokNow, 10);
-                        const rowIndex    = currentHour >= 1 ? currentHour - 1 : 23;
-                        probScrollRef.current.scrollTop = Math.max(0, rowIndex * 26);
-                    }
-                }, 100);
 
             } catch (error) {
                 console.error("Error:", error);
@@ -162,28 +146,6 @@ const DashboardPage = () => {
                     </div>
                 </div>
 
-                <div className={styles.topRight}>
-                    <div className={styles.probTableCard}>
-                        <div className={styles.probHeader}>เปอร์เซ็นต์การเกิดฝน</div>
-                        <div className={styles.probGridHeader}>
-                            <div className={styles.probTimeCol}>time</div>
-                            <div>Sun</div><div>M</div><div>Tu</div>
-                            <div>W</div><div>Th</div><div>Fr</div><div>St</div>
-                        </div>
-                        <div className={styles.probScrollArea} ref={probScrollRef}>
-                            <div className={styles.probGrid}>
-                                {probData.map((row, idx) => (
-                                    <span key={idx} className={styles.probRowContents}>
-                                        <div className={styles.probTimeCol}>{row.time}</div>
-                                        <div>{row.sun}</div><div>{row.mon}</div><div>{row.tue}</div>
-                                        <div>{row.wed}</div><div>{row.thu}</div><div>{row.fri}</div>
-                                        <div>{row.sat}</div>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </section>
 
             {/* --- ส่วนกลาง: กราฟ — ลำดับที่ 3 (Threshold Lines) --- */}
