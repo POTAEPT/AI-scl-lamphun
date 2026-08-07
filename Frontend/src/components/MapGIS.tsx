@@ -23,6 +23,14 @@ const icons = {
   critical: createIcon("#EF4444"),
 };
 
+// ---- คำนวณสถานะจากระดับน้ำ ----
+// critical >= 5.0 ม., warning >= 3.5 ม.
+const calcStatus = (value: number): "normal" | "warning" | "critical" => {
+  if (value >= 5.0) return "critical";
+  if (value >= 3.5) return "warning";
+  return "normal";
+};
+
 interface MapStation {
   id: string;
   name: string;
@@ -34,22 +42,71 @@ interface MapStation {
   rainfall: number;
 }
 
-// ---- Component For Auto-centering Map to Markers ----
+// ---- Auto-zoom ให้แผนที่พอดีกับหมุดทั้งหมด ----
 const UpdateMapBounds = ({ stations }: { stations: MapStation[] }) => {
   const map = useMap();
   useEffect(() => {
-    if (stations.length > 0) {
-      const bounds = L.latLngBounds(stations.map((s) => [s.lat, s.lng]));
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [stations, map]);
+    if (stations.length === 0) return;
+    const bounds = L.latLngBounds(stations.map(s => [s.lat, s.lng]));
+    map.fitBounds(bounds, { padding: [50, 50] });
+  }, [map, stations]);
   return null;
 };
 
+// ---- StatusSummary ----
+const StatusSummary: React.FC<{ stations: MapStation[] }> = ({ stations }) => {
+  const counts = useMemo(() => ({
+    normal:   stations.filter(s => s.status === "normal").length,
+    warning:  stations.filter(s => s.status === "warning").length,
+    critical: stations.filter(s => s.status === "critical").length,
+  }), [stations]);
+
+  return (
+    <div className={styles.statusSummary}>
+      <div className={styles.summaryTitle}>สรุปภาพรวม</div>
+      <div className={styles.summaryGrid}>
+        <div className={styles.summaryItem}>
+          <span className={styles.summaryDot} style={{ background: "#10B981" }} />
+          <span className={styles.summaryLabel}>ปกติ</span>
+          <span className={styles.summaryCount} style={{ color: "#10B981" }}>{counts.normal}</span>
+        </div>
+        <div className={styles.summaryItem}>
+          <span className={styles.summaryDot} style={{ background: "#FFAE00" }} />
+          <span className={styles.summaryLabel}>เฝ้าระวัง</span>
+          <span className={styles.summaryCount} style={{ color: "#FFAE00" }}>{counts.warning}</span>
+        </div>
+        <div className={styles.summaryItem}>
+          <span className={styles.summaryDot} style={{ background: "#EF4444" }} />
+          <span className={styles.summaryLabel}>วิกฤต</span>
+          <span className={styles.summaryCount} style={{ color: "#EF4444" }}>{counts.critical}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---- Map Legend ----
+const MapLegend: React.FC = () => (
+  <div className={styles.mapLegend}>
+    {[
+      { color: "#10B981", label: "ปกติ" },
+      { color: "#FFAE00", label: "เฝ้าระวัง" },
+      { color: "#EF4444", label: "วิกฤต" },
+    ].map(({ color, label }) => (
+      <div key={label} className={styles.legendItem}>
+        <svg width="14" height="20" viewBox="0 0 384 512">
+          <path fill={color} d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0zM192 272c44.183 0 80-35.817 80-80s-35.817-80-80-80-80 35.817-80 80 35.817 80 80 80z"/>
+        </svg>
+        <span className={styles.legendText}>{label}</span>
+      </div>
+    ))}
+  </div>
+);
+
 // ---- Main Component ----
 const MapGIS = () => {
-  const [search, setSearch] = useState("");
-  const [stations, setStations] = useState<MapStation[]>([]);
+  const [search, setSearch]       = useState("");
+  const [stations, setStations]   = useState<MapStation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -57,7 +114,7 @@ const MapGIS = () => {
       try {
         const stationDevices = await DeviceService.getLatestStations();
 
-        if (stationDevices.length === 0) {
+        if (latestData.length === 0) {
           setStations([]);
           setIsLoading(false);
           return;
@@ -65,7 +122,7 @@ const MapGIS = () => {
 
         // Group by stationId and take first device's data for map position
         const uniqueStations = new Map<string, MapStation>();
-        for (const s of stationDevices) {
+        for (const s of latestData) {
           if (!uniqueStations.has(s.stationId)) {
             const lat = parseFloat(s.latitude) || 18.78;
             const lng = parseFloat(s.longitude) || 99.005;
@@ -123,7 +180,7 @@ const MapGIS = () => {
       <div className={styles.mapContainer}>
         <MapContainer
           center={mapCenter}
-          zoom={14}
+          zoom={12}
           className={styles.mapCanvas}
           zoomControl={false}
         >
@@ -148,7 +205,7 @@ const MapGIS = () => {
                     <span className={styles.popupUnit}>เมตร</span>
                   </div>
                   <div className={styles.popupRow}>
-                    <span className={styles.popupLabel}>ปริมาณน้ำฝนสะสม</span>
+                    <span className={styles.popupLabel}>สถานะ</span>
                   </div>
                   <div className={styles.popupRow}>
                     <span className={styles.popupValue}>
@@ -198,7 +255,7 @@ const MapGIS = () => {
                 {filtered.map((s) => (
                   <div key={s.id} className={styles.stationRow}>
                     <span className={styles.stationName}>{s.name}</span>
-                    <span className={styles.stationDetail}>{s.detail}</span>
+                    <span className={styles.stationDetail}>{s.waterLevel.toFixed(2)} ม.</span>
                   </div>
                 ))}
                 {filtered.length === 0 && (
