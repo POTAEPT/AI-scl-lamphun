@@ -135,9 +135,13 @@ export const WaterLevelChart: React.FC<WaterLevelChartProps> = ({
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 24, right: 20, left: -20, bottom: 0 }}>
             <defs>
+              <linearGradient id="colorWater" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="var(--color-graf-water, #3b82f6)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="var(--color-graf-water, #3b82f6)" stopOpacity={0}    />
+              </linearGradient>
               <linearGradient id="colorRainfall" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="var(--color-graf-rain)" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="var(--color-graf-rain)" stopOpacity={0}    />
+                <stop offset="5%"  stopColor="var(--color-graf-rain, #a855f7)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="var(--color-graf-rain, #a855f7)" stopOpacity={0}    />
               </linearGradient>
             </defs>
 
@@ -202,14 +206,25 @@ export const WaterLevelChart: React.FC<WaterLevelChartProps> = ({
 
             <Area
               type="monotone"
+              dataKey="waterLevel"
+              name="ระดับน้ำ"
+              stroke="var(--color-graf-water, #3b82f6)"
+              strokeWidth={2}
+              fillOpacity={1}
+              fill="url(#colorWater)"
+              activeDot={{ r: 6, fill: "var(--color-graf-water, #3b82f6)", stroke: "#fff", strokeWidth: 2 }}
+              dot={false}
+            />
+            <Area
+              type="monotone"
               dataKey="rainLevel"
               name="ปริมาณน้ำฝนสะสม"
-              stroke="var(--color-graf-rain)"
+              stroke="var(--color-graf-rain, #a855f7)"
               strokeWidth={2}
               fillOpacity={1}
               fill="url(#colorRainfall)"
-              activeDot={{ r: 6, fill: "var(--color-graf-rain)", stroke: "#fff", strokeWidth: 2 }}
-              dot={{ r: 3, fill: "#fff", stroke: "var(--color-graf-rain)", strokeWidth: 2 }}
+              activeDot={{ r: 6, fill: "var(--color-graf-rain, #a855f7)", stroke: "#fff", strokeWidth: 2 }}
+              dot={false}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -230,9 +245,17 @@ const ChartLegend: React.FC<ChartLegendProps> = ({ warningLevel, criticalLevel }
     {/* เส้นข้อมูล */}
     <div className={styles.legendItem}>
       <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
-        <circle cx="4"  cy="6" r="3" fill="#fff" stroke="var(--color-graf-rain)" strokeWidth="2" />
-        <line x1="7" y1="6" x2="17" y2="6" stroke="var(--color-graf-rain)" strokeWidth="2" />
-        <circle cx="20" cy="6" r="3" fill="#fff" stroke="var(--color-graf-rain)" strokeWidth="2" />
+        <circle cx="4"  cy="6" r="3" fill="#fff" stroke="var(--color-graf-water, #3b82f6)" strokeWidth="2" />
+        <line x1="7" y1="6" x2="17" y2="6" stroke="var(--color-graf-water, #3b82f6)" strokeWidth="2" />
+        <circle cx="20" cy="6" r="3" fill="#fff" stroke="var(--color-graf-water, #3b82f6)" strokeWidth="2" />
+      </svg>
+      <span className={styles.legendText}>ระดับน้ำ</span>
+    </div>
+    <div className={styles.legendItem}>
+      <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+        <circle cx="4"  cy="6" r="3" fill="#fff" stroke="var(--color-graf-rain, #a855f7)" strokeWidth="2" />
+        <line x1="7" y1="6" x2="17" y2="6" stroke="var(--color-graf-rain, #a855f7)" strokeWidth="2" />
+        <circle cx="20" cy="6" r="3" fill="#fff" stroke="var(--color-graf-rain, #a855f7)" strokeWidth="2" />
       </svg>
       <span className={styles.legendText}>ปริมาณน้ำฝนสะสม</span>
     </div>
