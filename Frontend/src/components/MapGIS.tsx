@@ -18,8 +18,8 @@ const createIcon = (color: string) =>
   });
 
 const icons = {
-  normal:   createIcon("#10B981"),
-  warning:  createIcon("#FFAE00"),
+  normal: createIcon("#10B981"),
+  warning: createIcon("#FFAE00"),
   critical: createIcon("#EF4444"),
 };
 
@@ -112,8 +112,7 @@ const MapGIS = () => {
   useEffect(() => {
     const fetchStations = async () => {
       try {
-        // ใช้ getLatestStations() เพื่อให้ได้ monitorValue พร้อมคำนวณ status ได้จริง
-        const latestData = await DeviceService.getLatestStations();
+        const stationDevices = await DeviceService.getLatestStations();
 
         if (latestData.length === 0) {
           setStations([]);
@@ -121,22 +120,30 @@ const MapGIS = () => {
           return;
         }
 
+        // Group by stationId and take first device's data for map position
         const uniqueStations = new Map<string, MapStation>();
         for (const s of latestData) {
           if (!uniqueStations.has(s.stationId)) {
-            const lat        = parseFloat(s.latitude)     || 18.78;
-            const lng        = parseFloat(s.longitude)    || 99.005;
+            const lat = parseFloat(s.latitude) || 18.78;
+            const lng = parseFloat(s.longitude) || 99.005;
+
+            // ดึงค่าระดับน้ำจากข้อมูลล่าสุด
             const waterLevel = parseFloat(s.monitorValue) || 0;
+            
+            // คำนวณสถานะตามเกณฑ์เดียวกับ Design System
+            let status: "normal" | "warning" | "critical" = "normal";
+            if (waterLevel > 3.5) status = "critical";
+            else if (waterLevel >= 2.5) status = "warning";
 
             uniqueStations.set(s.stationId, {
-              id:         s.stationId,
-              name:       s.stationName || "Unknown Station",
-              detail:     `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+              id: s.stationId,
+              name: s.stationName || 'Unknown Station',
+              detail: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
               lat,
               lng,
-              status:     calcStatus(waterLevel),
+              status,
               waterLevel,
-              rainfall:   0,
+              rainfall: 0,
             });
           }
         }
@@ -152,18 +159,24 @@ const MapGIS = () => {
     fetchStations();
   }, []);
 
-  const filtered = useMemo(
-    () => stations.filter(
-      s => s.name.toLowerCase().includes(search.toLowerCase()) || s.detail.includes(search),
+  const filtered = useMemo(() =>
+    stations.filter(
+      (s) => s.name.toLowerCase().includes(search.toLowerCase()) || s.detail.includes(search),
     ),
     [stations, search],
   );
 
-  // center เริ่มต้น — UpdateMapBounds จะ override ให้อัตโนมัติ
-  const mapCenter: [number, number] = [18.63, 99.02];
+  const mapCenter: [number, number] = useMemo(() => stations.length > 0
+    ? [
+        stations.reduce((sum, s) => sum + s.lat, 0) / stations.length,
+        stations.reduce((sum, s) => sum + s.lng, 0) / stations.length,
+      ]
+    : [18.78, 99.005],
+    [stations]);
 
   return (
     <div className={styles.page}>
+      {/* Map (full area) */}
       <div className={styles.mapContainer}>
         <MapContainer
           center={mapCenter}
@@ -171,9 +184,7 @@ const MapGIS = () => {
           className={styles.mapCanvas}
           zoomControl={false}
         >
-          {/* Auto-zoom ให้พอดีกับหมุด 5 สถานี */}
-          <UpdateMapBounds stations={stations} />
-
+          <UpdateMapBounds stations={filtered} />
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -182,21 +193,13 @@ const MapGIS = () => {
           {filtered.map((s) => (
             <Marker key={s.id} position={[s.lat, s.lng]} icon={icons[s.status]}>
               <Popup className={styles.customPopup} closeButton={false}>
-                <div className={styles.popupCard} style={{
-                  borderLeftColor:
-                    s.status === "critical" ? "#EF4444" :
-                    s.status === "warning"  ? "#FFAE00" : "#10B981",
-                }}>
+                <div className={styles.popupCard}>
                   <div className={styles.popupTitle}>{s.name}</div>
                   <div className={styles.popupRow}>
                     <span className={styles.popupLabel}>ระดับน้ำ</span>
                   </div>
                   <div className={styles.popupRow}>
-                    <span className={styles.popupValue} style={{
-                      color:
-                        s.status === "critical" ? "#EF4444" :
-                        s.status === "warning"  ? "#FFAE00" : "#10B981",
-                    }}>
+                    <span className={styles.popupValue}>
                       {s.waterLevel.toFixed(3)}
                     </span>
                     <span className={styles.popupUnit}>เมตร</span>
@@ -205,15 +208,10 @@ const MapGIS = () => {
                     <span className={styles.popupLabel}>สถานะ</span>
                   </div>
                   <div className={styles.popupRow}>
-                    <span className={styles.popupValue} style={{
-                      fontSize: 13,
-                      color:
-                        s.status === "critical" ? "#EF4444" :
-                        s.status === "warning"  ? "#FFAE00" : "#10B981",
-                    }}>
-                      {s.status === "critical" ? "วิกฤต" :
-                       s.status === "warning"  ? "เฝ้าระวัง" : "ปกติ"}
+                    <span className={styles.popupValue}>
+                      {s.rainfall.toFixed(3)}
                     </span>
+                    <span className={styles.popupUnit}>มิลลิเมตร/ชั่วโมง</span>
                   </div>
                 </div>
               </Popup>
@@ -221,58 +219,47 @@ const MapGIS = () => {
           ))}
         </MapContainer>
 
-        {/* Legend มุมล่างซ้าย */}
-        <MapLegend />
-
-        {/* Right Panel */}
+        {/* Right Panel: Search + Station List */}
         <div className={styles.rightPanel}>
           {isLoading ? (
             <div className={styles.stationList}>
-              <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>
-                กำลังโหลด...
-              </div>
+              <div style={{ padding: "20px", textAlign: "center" }}>Loading...</div>
             </div>
           ) : (
             <>
-              {/* สรุปภาพรวม */}
-              <StatusSummary stations={stations} />
-
-              {/* ช่องค้นหา */}
+              {/* Search */}
               <div className={styles.searchBox}>
-                <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className={styles.searchIcon}
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <circle cx="11" cy="11" r="8" />
                   <path d="m21 21-4.35-4.35" />
                 </svg>
                 <input
                   type="text"
-                  placeholder="ค้นหาสถานี..."
+                  placeholder="Search"
                   className={styles.searchInput}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
 
-              {/* รายชื่อสถานี */}
+              {/* Station List */}
               <div className={styles.stationList}>
                 {filtered.map((s) => (
                   <div key={s.id} className={styles.stationRow}>
-                    <span
-                      className={styles.statusDot}
-                      style={{
-                        background:
-                          s.status === "critical" ? "#EF4444" :
-                          s.status === "warning"  ? "#FFAE00" : "#10B981",
-                      }}
-                    />
                     <span className={styles.stationName}>{s.name}</span>
                     <span className={styles.stationDetail}>{s.waterLevel.toFixed(2)} ม.</span>
                   </div>
                 ))}
                 {filtered.length === 0 && (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>
-                    ไม่พบสถานี
-                  </div>
+                  <div style={{ padding: "20px", textAlign: "center" }}>No stations found</div>
                 )}
               </div>
             </>

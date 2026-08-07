@@ -1,7 +1,9 @@
 // src/pages/DashboardPage.tsx
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { DeviceService, MockDeviceService, type DeviceRangeData, type StationLatestInfo } from '../service/deviceService';
+import StationTable from '../components/Dashboard-StationTable';
+import AlertCard from '../components/AlertCard';
+import { DeviceService, MockDeviceService, type DeviceRangeData } from '../service/deviceService';
 import WaterLevelChart from '../components/WaterLevelChart';
 import DataCard from '../components/DataCard';
 import AlertCard from '../components/AlertCard';
@@ -31,7 +33,8 @@ const DashboardPage = () => {
     // ---- state: ประวัติของสถานีที่เลือก ----
     const [waterHistory, setWaterHistory] = useState<DeviceRangeData[]>([]);
     const [rainHistory,  setRainHistory]  = useState<DeviceRangeData[]>([]);
-    const [chartLoading, setChartLoading] = useState(false);
+
+    const [isLoading, setIsLoading] = useState<boolean>(false);
 
     // ---- ค่า live จากกราฟ ----
     const [waterValue, setWaterValue] = useState('---');
@@ -47,13 +50,38 @@ const DashboardPage = () => {
         const fetchAll = async () => {
             setIsLoading(true);
             try {
-                const data = USE_MOCK_DATA
-                    ? await MockDeviceService.getLatestStations()
-                    : await DeviceService.getLatestStations();
-                setAllStations(data);
-                if (data.length > 0) setSelectedId(data[0].deviceId);
-            } catch (e) {
-                console.error('fetchAll error:', e);
+                const envDeviceId  = import.meta.env.VITE_API_DEVICE_ID        || "MOCK_DEVICE_001";
+                const secretKey    = import.meta.env.VITE_API_deviceSecretKey  || "MOCK_KEY";
+                const endTime      = Date.now();
+                const startTime    = endTime - (24 * 60 * 60 * 1000);
+
+                let infoRes, waterRes, rainRes;
+
+                if (USE_MOCK_DATA) {
+                    infoRes = await MockDeviceService.getStationInfo(envDeviceId);
+                    const results = await Promise.all([
+                        MockDeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
+                        MockDeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
+                    ]);
+                    [waterRes, rainRes] = results;
+                } else {
+                    infoRes = await DeviceService.getStationInfo(envDeviceId);
+                    const results = await Promise.all([
+                        DeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
+                        DeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
+                    ]);
+                    [waterRes, rainRes] = results;
+                }
+
+                if (infoRes) {
+                    setStationName(infoRes.customName || infoRes.monitorName || "Unknown Station");
+                }
+
+                setWaterHistory(waterRes || []);
+                setRainHistory(rainRes   || []);
+
+            } catch (error) {
+                console.error("Error:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -111,30 +139,43 @@ const DashboardPage = () => {
 
             {/* ส่วนบน: DataCards เต็มแถว (ไม่มี prob table แล้ว) */}
             <section className={styles.topSection}>
-                <div className={styles.cardGrid}>
-                    <DataCard
-                        title="จำนวนสถานี"
-                        value={isLoading ? '...' : allStations.length}
-                        unit="สถานี"
-                        theme="blue"
-                    />
-                    <DataCard
-                        title="ระดับน้ำ"
-                        value={waterValue}
-                        unit="เมตร"
-                        theme="orange"
-                    />
-                    <DataCard
-                        title="ปริมาณน้ำฝนสะสม"
-                        value={rainValue}
-                        unit="มม./ชม."
-                        theme="orange"
-                    />
-                    <AlertCard
-                        criticalCount={alertCounts.critical}
-                        warningCount={alertCounts.warning}
-                    />
+                <div className={styles.topLeft}>
+                    <div className={styles.cardGrid}>
+                        <DataCard
+                            title="จำนวนสถานี"
+                            value={stationList.length}
+                            unit="สถานี"
+                            theme="blue"
+                        />
+                        <DataCard
+                            title="ระดับน้ำ"
+                            value={waterValue}
+                            unit="เมตร"
+                            theme="orange"
+                        />
+                        <DataCard
+                            title="ปริมาณน้ำฝนสะสม"
+                            value={rainValue}
+                            unit="มม./ชม."
+                            theme="orange"
+                        />
+                        {/* การ์ดแจ้งเตือน — ลำดับที่ 2 */}
+                        <AlertCard
+                            criticalCount={alertCounts.critical}
+                            warningCount={alertCounts.warning}
+                        />
+                    </div>
+
+                    <div className={styles.controlBar}>
+                        <select className={styles.selectInput}>
+                            <option>ประเภทข้อมูล</option>
+                        </select>
+                        <select className={styles.selectInput}>
+                            <option>ตั้งค่ากราฟ</option>
+                        </select>
+                    </div>
                 </div>
+
             </section>
 
             {/* ตัวเลือกสถานี + กราฟ */}

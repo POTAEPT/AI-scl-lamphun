@@ -10,7 +10,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(BYPASS_LOGIN);
 
   const [userId, setUserId] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   void userId;
 
   useEffect(() => {

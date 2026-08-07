@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, Legend as RechartLegend
+  Tooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import MapView from '../components/MapView';
 import type { StationData as MapStationData } from '../components/MapView';

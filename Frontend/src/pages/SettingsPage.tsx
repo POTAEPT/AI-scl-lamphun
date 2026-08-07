@@ -256,7 +256,7 @@ const AlertsTab: React.FC<{
     setLevels(init);
   }, [stations]);
 
-  const handleSave = async (stationId: string, name: string) => {
+  const handleSave = async (_stationId: string, name: string) => {
     try {
       // TODO: เรียก PATCH /api/v2/stations/:id { warningLevel: levels[stationId] }
       await new Promise(r => setTimeout(r, 500));

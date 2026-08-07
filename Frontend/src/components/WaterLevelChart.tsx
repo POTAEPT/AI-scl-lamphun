@@ -139,8 +139,9 @@ export const WaterLevelChart: React.FC<WaterLevelChartProps> = ({
               fontSize={12}
               stroke="var(--color-text-secondary)"
               tickLine={false}
-              axisLine={{ stroke: 'var(--color-text-secondary)', strokeOpacity: 0.3 }}
-              dy={8}
+              axisLine={{ stroke: "var(--color-text-secondary)", strokeOpacity: 0.3 }}
+              dy={10}
+              padding={{ left: 20, right: 20 }}
             />
             <YAxis
               fontSize={12}
