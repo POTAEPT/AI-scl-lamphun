@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { DeviceService } from "../service/deviceService";
@@ -23,6 +23,14 @@ const icons = {
   critical: createIcon("#EF4444"),
 };
 
+// ---- คำนวณสถานะจากระดับน้ำ ----
+// critical >= 5.0 ม., warning >= 3.5 ม.
+const calcStatus = (value: number): "normal" | "warning" | "critical" => {
+  if (value >= 5.0) return "critical";
+  if (value >= 3.5) return "warning";
+  return "normal";
+};
+
 interface MapStation {
   id: string;
   name: string;
@@ -34,7 +42,18 @@ interface MapStation {
   rainfall: number;
 }
 
-// ---- Status Summary Sub-component (ลำดับที่ 4 - NEW) ----
+// ---- Auto-zoom ให้แผนที่พอดีกับหมุดทั้งหมด ----
+const UpdateMapBounds = ({ stations }: { stations: MapStation[] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (stations.length === 0) return;
+    const bounds = L.latLngBounds(stations.map(s => [s.lat, s.lng]));
+    map.fitBounds(bounds, { padding: [50, 50] });
+  }, [map, stations]);
+  return null;
+};
+
+// ---- StatusSummary ----
 const StatusSummary: React.FC<{ stations: MapStation[] }> = ({ stations }) => {
   const counts = useMemo(() => ({
     normal:   stations.filter(s => s.status === "normal").length,
@@ -66,7 +85,7 @@ const StatusSummary: React.FC<{ stations: MapStation[] }> = ({ stations }) => {
   );
 };
 
-// ---- Map Legend Sub-component (ลำดับที่ 4 - NEW) ----
+// ---- Map Legend ----
 const MapLegend: React.FC = () => (
   <div className={styles.mapLegend}>
     {[
@@ -86,34 +105,37 @@ const MapLegend: React.FC = () => (
 
 // ---- Main Component ----
 const MapGIS = () => {
-  const [search, setSearch]     = useState("");
-  const [stations, setStations] = useState<MapStation[]>([]);
+  const [search, setSearch]       = useState("");
+  const [stations, setStations]   = useState<MapStation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchStations = async () => {
       try {
-        const stationDevices = await DeviceService.getStations();
+        // ใช้ getLatestStations() เพื่อให้ได้ monitorValue พร้อมคำนวณ status ได้จริง
+        const latestData = await DeviceService.getLatestStations();
 
-        if (stationDevices.length === 0) {
+        if (latestData.length === 0) {
           setStations([]);
           setIsLoading(false);
           return;
         }
 
         const uniqueStations = new Map<string, MapStation>();
-        for (const s of stationDevices) {
+        for (const s of latestData) {
           if (!uniqueStations.has(s.stationId)) {
-            const lat = parseFloat(s.latitude) || 18.78;
-            const lng = parseFloat(s.longitude) || 99.005;
+            const lat        = parseFloat(s.latitude)     || 18.78;
+            const lng        = parseFloat(s.longitude)    || 99.005;
+            const waterLevel = parseFloat(s.monitorValue) || 0;
+
             uniqueStations.set(s.stationId, {
               id:         s.stationId,
               name:       s.stationName || "Unknown Station",
               detail:     `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
               lat,
               lng,
-              status:     "normal",
-              waterLevel: 0,
+              status:     calcStatus(waterLevel),
+              waterLevel,
               rainfall:   0,
             });
           }
@@ -132,33 +154,26 @@ const MapGIS = () => {
 
   const filtered = useMemo(
     () => stations.filter(
-      (s) =>
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.detail.includes(search),
+      s => s.name.toLowerCase().includes(search.toLowerCase()) || s.detail.includes(search),
     ),
     [stations, search],
   );
 
-  const mapCenter: [number, number] = useMemo(
-    () =>
-      stations.length > 0
-        ? [
-            stations.reduce((sum, s) => sum + s.lat, 0) / stations.length,
-            stations.reduce((sum, s) => sum + s.lng, 0) / stations.length,
-          ]
-        : [18.78, 99.005],
-    [stations],
-  );
+  // center เริ่มต้น — UpdateMapBounds จะ override ให้อัตโนมัติ
+  const mapCenter: [number, number] = [18.63, 99.02];
 
   return (
     <div className={styles.page}>
       <div className={styles.mapContainer}>
         <MapContainer
           center={mapCenter}
-          zoom={14}
+          zoom={12}
           className={styles.mapCanvas}
           zoomControl={false}
         >
+          {/* Auto-zoom ให้พอดีกับหมุด 5 สถานี */}
+          <UpdateMapBounds stations={stations} />
+
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -187,13 +202,18 @@ const MapGIS = () => {
                     <span className={styles.popupUnit}>เมตร</span>
                   </div>
                   <div className={styles.popupRow}>
-                    <span className={styles.popupLabel}>ปริมาณน้ำฝนสะสม</span>
+                    <span className={styles.popupLabel}>สถานะ</span>
                   </div>
                   <div className={styles.popupRow}>
-                    <span className={styles.popupValue} style={{ color: "#10B981" }}>
-                      {s.rainfall.toFixed(3)}
+                    <span className={styles.popupValue} style={{
+                      fontSize: 13,
+                      color:
+                        s.status === "critical" ? "#EF4444" :
+                        s.status === "warning"  ? "#FFAE00" : "#10B981",
+                    }}>
+                      {s.status === "critical" ? "วิกฤต" :
+                       s.status === "warning"  ? "เฝ้าระวัง" : "ปกติ"}
                     </span>
-                    <span className={styles.popupUnit}>มม./ชม.</span>
                   </div>
                 </div>
               </Popup>
@@ -201,7 +221,7 @@ const MapGIS = () => {
           ))}
         </MapContainer>
 
-        {/* Legend มุมล่างซ้าย (ลำดับที่ 4 - NEW) */}
+        {/* Legend มุมล่างซ้าย */}
         <MapLegend />
 
         {/* Right Panel */}
@@ -214,7 +234,7 @@ const MapGIS = () => {
             </div>
           ) : (
             <>
-              {/* สรุปภาพรวม (ลำดับที่ 4 - NEW) */}
+              {/* สรุปภาพรวม */}
               <StatusSummary stations={stations} />
 
               {/* ช่องค้นหา */}
@@ -237,7 +257,6 @@ const MapGIS = () => {
               <div className={styles.stationList}>
                 {filtered.map((s) => (
                   <div key={s.id} className={styles.stationRow}>
-                    {/* Status dot (ลำดับที่ 4 - NEW) */}
                     <span
                       className={styles.statusDot}
                       style={{
@@ -247,7 +266,7 @@ const MapGIS = () => {
                       }}
                     />
                     <span className={styles.stationName}>{s.name}</span>
-                    <span className={styles.stationDetail}>{s.detail}</span>
+                    <span className={styles.stationDetail}>{s.waterLevel.toFixed(2)} ม.</span>
                   </div>
                 ))}
                 {filtered.length === 0 && (

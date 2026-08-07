@@ -1,149 +1,114 @@
-/* คอนเทนเนอร์ใหญ่ของหน้าเพจแดชบอร์ด  */
+/* DashboradPage.module.css */
+
 .container {
     padding: 20px 0;
-    background-color: #1E293B;
+    background-color: var(--color-bg-page);
     color: #ffffff;
+    min-height: 100vh;
 }
 
+/* ---- ส่วนบน: DataCards เต็มแถว (ไม่มี prob table แล้ว) ---- */
 .topSection {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 24px;
     width: 1356px;
-    margin: 0 auto 30px auto;
+    margin: 0 auto 24px auto;
 }
 
-.topLeft {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* ปรับ cardGrid ให้รองรับ 4 การ์ด — wrap อัตโนมัติ */
 .cardGrid {
     display: grid;
-    /* 4 คอลัมน์เท่ากัน */
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
 }
 
-/* แถบตัวเลือกดรอปดาวน์ตั้งค่ากราฟ */
-.controlBar {
-    display: flex;
-    gap: 12px;
-}
-
-.selectInput {
-    background-color: #222b3a;
-    border: 1px solid #2d3748;
-    color: #ffffff;
-    padding: 8px 16px;
-    border-radius: 8px;
-    outline: none;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.topRight {
-    flex: 1;
-    display: flex;
-}
-
-.probTableCard {
-    background: var(--color-bg-surface);
-    border-radius: 10px;
-    border: 1px solid var(--color-border-line);
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    height: fit-content;
-    max-height: 120px;
-}
-
-.probHeader {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin-bottom: 8px;
-}
-
-.probGridHeader {
-    display: grid;
-    grid-template-columns: 56px repeat(7, 1fr);
-    gap: 6px 8px;
-    text-align: center;
-    font-size: 12px;
-    color: var(--color-text-secondary);
-    font-weight: 600;
-    border-bottom: 1px solid var(--color-border-line);
-    padding-bottom: 8px;
-    margin-bottom: 4px;
-}
-
-.probTimeCol {
-    text-align: left;
-    color: var(--color-text-primary);
-    font-size: 12px;
-}
-
-.probScrollArea {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
-}
-
-.probScrollArea::-webkit-scrollbar {
-    width: 6px;
-}
-
-.probScrollArea::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.probScrollArea::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
-}
-
-.probGrid {
-    display: grid;
-    grid-template-columns: 60px repeat(7, 1fr);
-    gap: 12px;
-    text-align: center;
-    font-size: 13px;
-    color: #8b95a5;
-}
-
-.probRowContents {
-    display: contents;
-    color: #ffffff;
-}
-
-/* --- ส่วนกลาง: กราฟ --- */
+/* ---- ส่วนกลาง: กราฟ + Station Selector ---- */
 .chartSection {
     width: 1356px;
-    margin: 0 auto 30px auto;
+    margin: 0 auto 24px auto;
 }
 
 .chartWrapper {
     background: #222b3a;
     border-radius: 16px;
-    padding: 24px;
     border: 1px solid #2d3748;
-    /* เพิ่มความสูงนิดนึงเพื่อให้ label Threshold ไม่ถูกตัด */
-    min-height: 340px;
+    padding-bottom: 16px;
 }
 
-/* --- ส่วนล่างสุด: ตารางข้อมูล --- */
+/* Station Selector Bar */
+.stationSelectorRow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 24px 4px;
+}
+
+.selectorLabel {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Dropdown wrapper */
+.dropdownWrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 240px;
+    transition: border-color 0.15s;
+}
+.dropdownWrap:focus-within {
+    border-color: rgba(0,153,255,0.5);
+}
+
+/* status dot ข้างหน้า dropdown */
+.dropdownDot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* select element */
+.stationDropdown {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--color-text-primary);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+.stationDropdown option {
+    background: #1e293b;
+    color: #f1f5f9;
+    font-size: 14px;
+}
+
+/* Loading state กราฟ */
+.chartLoading {
+    padding: 80px 24px;
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+}
+
+/* ---- ส่วนล่าง: ตาราง ---- */
 .tableSection {
     width: 1356px;
     margin: 0 auto;
 }
 
-/* --- Responsive --- */
+/* ---- Responsive ---- */
 @media (max-width: 1400px) {
     .topSection,
     .chartSection,
@@ -160,14 +125,12 @@
     }
 }
 
-@media (max-width: 1024px) {
-    .topSection {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .cardGrid {
         grid-template-columns: 1fr;
+    }
+    .stationSelectorRow {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
