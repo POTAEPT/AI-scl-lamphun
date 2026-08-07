@@ -10,9 +10,11 @@
     padding: 14px 24px;
     border-bottom: 1px solid var(--color-border-line);
     font-weight: 600;
-    font-size: 14px;
-    color: var(--color-text-primary);
+    font-size: 13px;
+    color: var(--color-text-secondary);
     align-items: center;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .tableBody {
@@ -20,15 +22,17 @@
     flex-direction: column;
 }
 
+/* --- แถวข้อมูลหลัก --- */
 .dataRow {
     display: grid;
     grid-template-columns: 2fr 1fr 0.5fr 0.5fr 1fr 1fr;
-    padding: 14px 24px;
+    padding: 13px 24px;
     border-bottom: 1px solid var(--color-border-line);
     font-size: 14px;
     color: var(--color-text-primary);
     align-items: center;
-    transition: background-color 0.2s;
+    transition: background-color 0.15s ease;
+    border-left: 3px solid transparent;
 }
 
 .dataRow:last-child {
@@ -39,11 +43,120 @@
     background-color: rgba(255, 255, 255, 0.04);
 }
 
+/* --- สี Row ตามสถานะ --- */
+.dataRow.rowNormal {
+    border-left-color: var(--color-status-normal);
+}
+
+.dataRow.rowWarning {
+    border-left-color: var(--color-status-warning);
+    background-color: rgba(255, 174, 0, 0.05);
+}
+
+.dataRow.rowWarning:hover {
+    background-color: rgba(255, 174, 0, 0.09);
+}
+
+.dataRow.rowCritical {
+    border-left-color: var(--color-status-critical);
+    background-color: rgba(239, 68, 68, 0.07);
+}
+
+.dataRow.rowCritical:hover {
+    background-color: rgba(239, 68, 68, 0.12);
+}
+
+/* --- Status Badge --- */
+.stationNameCell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.stationName {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.badgeDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.badgeNormal {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: var(--color-status-normal);
+}
+
+.badgeNormal .badgeDot {
+    background-color: var(--color-status-normal);
+}
+
+.badgeWarning {
+    background-color: rgba(255, 174, 0, 0.15);
+    color: var(--color-status-warning);
+}
+
+.badgeWarning .badgeDot {
+    background-color: var(--color-status-warning);
+}
+
+.badgeCritical {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: var(--color-status-critical);
+    animation: pulseBadge 2s ease-in-out infinite;
+}
+
+.badgeCritical .badgeDot {
+    background-color: var(--color-status-critical);
+}
+
+@keyframes pulseBadge {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.65; }
+}
+
+/* --- Signal & Battery Icons --- */
 .iconCell {
     display: flex;
     align-items: center;
-    color: var(--color-text-secondary);
+    justify-content: center;
+    gap: 4px;
+    font-size: 16px;
 }
+
+.iconOnline  { color: var(--color-status-normal); }
+.iconOffline { color: var(--color-status-warning); }
+.iconCritical { color: var(--color-status-critical); }
+
+.iconLabel {
+    font-size: 10px;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+/* --- ค่าตัวเลข --- */
+.valueNormal   { color: var(--color-text-primary);   font-family: var(--font-data); font-weight: 600; }
+.valueWarning  { color: var(--color-status-warning);  font-family: var(--font-data); font-weight: 700; }
+.valueCritical { color: var(--color-status-critical); font-family: var(--font-data); font-weight: 700; }
 
 .centerAlign {
     text-align: center;
@@ -52,9 +165,9 @@
 
 .rightAlign {
     text-align: right;
-    justify-content: flex-end;
 }
 
+/* --- Misc --- */
 .loadingText {
     color: var(--color-text-secondary);
     text-align: center;
@@ -76,7 +189,7 @@
 }
 
 .exportButton {
-    padding: 4px 14px;
+    padding: 5px 16px;
     background-color: var(--color-text-onBrand);
     border: none;
     border-radius: 40px;
@@ -86,17 +199,9 @@
     font-weight: 600;
     color: var(--color-bg-page);
     letter-spacing: 0.3px;
+    transition: opacity 0.15s;
 }
 
-.statusText {
-    margin-left: 8px;
-    font-size: 10px;
-}
-
-.statusCritical {
-    color: var(--color-status-critical);
-}
-
-.statusWarning {
-    color: var(--color-status-warning);
+.exportButton:hover {
+    opacity: 0.85;
 }

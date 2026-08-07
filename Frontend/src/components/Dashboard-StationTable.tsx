@@ -17,10 +17,56 @@ interface TableRowData {
   rainfall: string;
   status: "normal" | "warning" | "critical";
   rawTimestamp: string;
+  signal: "online" | "offline";
 }
 
 const ROW_LIMIT = 20;
 
+// --- StatusBadge sub-component ---
+const StatusBadge: React.FC<{ status: "normal" | "warning" | "critical" }> = ({ status }) => {
+  const map = {
+    normal:   { label: "ปกติ",      cls: styles.badgeNormal   },
+    warning:  { label: "เฝ้าระวัง", cls: styles.badgeWarning  },
+    critical: { label: "วิกฤต",     cls: styles.badgeCritical },
+  };
+  const { label, cls } = map[status];
+  return (
+    <span className={`${styles.statusBadge} ${cls}`}>
+      <span className={styles.badgeDot} />
+      {label}
+    </span>
+  );
+};
+
+// --- SignalIcon sub-component ---
+const SignalIcon: React.FC<{ signal: "online" | "offline" }> = ({ signal }) => {
+  const isOnline = signal === "online";
+  return (
+    <div className={styles.iconCell}>
+      <i
+        className={`bi ${isOnline ? "bi-reception-4" : "bi-reception-1"} ${
+          isOnline ? styles.iconOnline : styles.iconOffline
+        }`}
+      />
+    </div>
+  );
+};
+
+// --- BatteryIcon sub-component ---
+const BatteryIcon: React.FC<{ signal: "online" | "offline" }> = ({ signal }) => {
+  const isOnline = signal === "online";
+  return (
+    <div className={styles.iconCell}>
+      <i
+        className={`bi ${isOnline ? "bi-battery-full" : "bi-battery-empty"} ${
+          isOnline ? styles.iconOnline : styles.iconOffline
+        }`}
+      />
+    </div>
+  );
+};
+
+// --- Main Component ---
 const StationTable: React.FC<StationTableProps> = React.memo(({
   waterData,
   rainData,
@@ -35,7 +81,6 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
         const date = new Date(isoString);
         const today = new Date();
         const isToday = date.toDateString() === today.toDateString();
-
         const timeStr = date
           .toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
           .replace(":", ".");
@@ -43,16 +88,13 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
           day: "numeric",
           month: "short",
         });
-
         return `${isToday ? "Today" : dateStr}, ${timeStr}`;
       } catch {
         return isoString;
       }
     };
 
-    const calculateStatus = (
-      water: string,
-    ): "normal" | "warning" | "critical" => {
+    const calculateStatus = (water: string): "normal" | "warning" | "critical" => {
       const val = parseFloat(water);
       if (isNaN(val)) return "normal";
       if (val >= 5.0) return "critical";
@@ -60,6 +102,7 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
       return "normal";
     };
 
+    // สมมติว่าข้อมูลจริงๆ จะมี signal field; ตอนนี้ใช้ค่า default = online
     for (const item of waterData) {
       dataMap.set(item.monitorTime, {
         rawTimestamp: item.monitorTime,
@@ -67,6 +110,7 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
         waterLevel: parseFloat(item.monitorValue).toFixed(3),
         rainfall: "-",
         name: stationName,
+        signal: "online",
       });
     }
 
@@ -76,8 +120,8 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
         timestamp: formatDisplayTime(item.monitorTime),
         waterLevel: "-",
         name: stationName,
+        signal: "online",
       };
-
       existing.rainfall = parseFloat(item.monitorValue).toFixed(3);
       dataMap.set(item.monitorTime, existing);
     }
@@ -100,14 +144,11 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
   }, [waterData, rainData, stationName]);
 
   const handleExportCSV = useCallback(() => {
-    const headers = [
-      "Station Name,Timestamp,Water Level (m),Rainfall (mm/h),Status",
-    ];
+    const headers = ["Station Name,Timestamp,Water Level (m),Rainfall (mm/h),Status"];
     const rows = tableData.map(
       (row) =>
         `${row.name},${row.rawTimestamp},${row.waterLevel},${row.rainfall},${row.status}`,
     );
-
     const csvContent =
       "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -119,34 +160,28 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
     document.body.removeChild(link);
   }, [tableData]);
 
+  // helper: CSS class สำหรับแถว
+  const rowClass = (status: "normal" | "warning" | "critical") => {
+    if (status === "critical") return `${styles.dataRow} ${styles.rowCritical}`;
+    if (status === "warning")  return `${styles.dataRow} ${styles.rowWarning}`;
+    return `${styles.dataRow} ${styles.rowNormal}`;
+  };
+
+  // helper: CSS class สำหรับตัวเลข
+  const valueClass = (status: "normal" | "warning" | "critical") => {
+    if (status === "critical") return styles.valueCritical;
+    if (status === "warning")  return styles.valueWarning;
+    return styles.valueNormal;
+  };
+
   if (isLoading) {
-    return <div className={styles.loadingText}>Loading Data...</div>;
+    return <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>;
   }
 
   return (
     <div className={styles.container}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          padding: "12px 24px 0",
-        }}
-      >
-        <button
-          onClick={handleExportCSV}
-          style={{
-            padding: "4px 14px",
-            backgroundColor: "#FFFFFF",
-            border: "none",
-            borderRadius: "40px",
-            cursor: "pointer",
-            fontFamily: "'Inter', system-ui, sans-serif",
-            fontSize: "12px",
-            fontWeight: "600",
-            color: "#111827",
-            letterSpacing: "0.3px",
-          }}
-        >
+      <div className={styles.exportContainer}>
+        <button onClick={handleExportCSV} className={styles.exportButton}>
           Export CSV
         </button>
       </div>
@@ -154,10 +189,10 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
       <div className={styles.tableHeader}>
         <div>ชื่อสถานี</div>
         <div>เวลา</div>
-        <div className={styles.iconCell}>สัญญาณ</div>
-        <div className={styles.iconCell}>แบตเตอรี่</div>
-        <div className={styles.centerAlign}>ระดับน้ำ(เมตร)</div>
-        <div className={styles.centerAlign}>ปริมาณน้ำฝน(มิลลิเมตร/ชั่วโมง)</div>
+        <div className={styles.centerAlign}>สัญญาณ</div>
+        <div className={styles.centerAlign}>แบตเตอรี่</div>
+        <div className={styles.centerAlign}>ระดับน้ำ (ม.)</div>
+        <div className={styles.centerAlign}>ปริมาณน้ำฝน (มม./ชม.)</div>
       </div>
 
       <div className={styles.tableBody}>
@@ -165,28 +200,31 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
           <div className={styles.emptyText}>ไม่มีข้อมูลสถานี</div>
         ) : (
           tableData.map((row) => (
-            <div key={row.id} className={styles.dataRow}>
-              <div>
-                {row.name}
-                {row.status !== "normal" && (
-                  <span
-                    className={`${styles.statusText} ${
-                      row.status === "critical"
-                        ? styles.statusCritical
-                        : styles.statusWarning
-                    }`}
-                  >
-                    ({row.status})
-                  </span>
-                )}
+            <div key={row.id} className={rowClass(row.status)}>
+              {/* ชื่อสถานี + Badge */}
+              <div className={styles.stationNameCell}>
+                <span className={styles.stationName}>{row.name}</span>
+                <StatusBadge status={row.status} />
               </div>
+
+              {/* เวลา */}
               <div>{row.timestamp}</div>
 
-              <div className={styles.iconCell}>สัญญาณ</div>
-              <div className={styles.iconCell}>แบตเตอรี่</div>
+              {/* สัญญาณ */}
+              <SignalIcon signal={row.signal} />
 
-              <div className={styles.centerAlign}>{row.waterLevel}</div>
-              <div className={styles.centerAlign}>{row.rainfall}</div>
+              {/* แบตเตอรี่ */}
+              <BatteryIcon signal={row.signal} />
+
+              {/* ระดับน้ำ */}
+              <div className={`${styles.centerAlign} ${valueClass(row.status)}`}>
+                {row.waterLevel}
+              </div>
+
+              {/* ปริมาณน้ำฝน */}
+              <div className={`${styles.centerAlign} ${styles.valueNormal}`}>
+                {row.rainfall}
+              </div>
             </div>
           ))
         )}

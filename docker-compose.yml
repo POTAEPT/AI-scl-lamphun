@@ -6,6 +6,8 @@ services:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE}
+    ports:
+      - 5432:5432
     volumes:
       - data:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +27,7 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - ./Backend/.env
+      - .env
     environment:
       DATABASE_URL: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@db:5432/${DB_DATABASE}"
 
