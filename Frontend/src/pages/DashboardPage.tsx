@@ -1,15 +1,14 @@
 // src/pages/DashboardPage.tsx
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import StationTable from '../components/Dashboard-StationTable';
 import AlertCard from '../components/AlertCard';
-import { DeviceService, MockDeviceService, type DeviceRangeData } from '../service/deviceService';
+import { DeviceService, MockDeviceService, type DeviceRangeData, type RainProbabilityData } from '../service/deviceService';
 import WaterLevelChart from '../components/WaterLevelChart';
 import DataCard from '../components/DataCard';
 import { STATIC_STATIONS } from '../data/stationList';
 import type { StationData } from '../components/MapView';
 import styles from '../styles/DashboradPage.module.css';
-import { MOCK_STATIONS } from '../data/mockData';
 
 // *** ตัวสลับโหมด ***
 const USE_MOCK_DATA = true;
@@ -21,8 +20,8 @@ const CRITICAL_LEVEL = 5.0;  // เมตร — เส้นวิกฤต
 
 const DashboardPage = () => {
     const [stationName, setStationName] = useState<string>("Loading Station...");
-    const [deviceId, setDeviceId] = useState<string>("DEV-K1");
-    const [location, setLocation] = useState<{lat: number, lng: number}>({
+    const [deviceId] = useState<string>("UNKNOWN_ID");
+    const [location] = useState<{lat: number, lng: number}>({
         lat: 18.586659,
         lng: 99.023166,
     });
@@ -32,8 +31,10 @@ const DashboardPage = () => {
 
     const [waterHistory, setWaterHistory] = useState<DeviceRangeData[]>([]);
     const [rainHistory,  setRainHistory]  = useState<DeviceRangeData[]>([]);
+    const [probData,     setProbData]     = useState<RainProbabilityData[]>([]);
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const probScrollRef = useRef<HTMLDivElement>(null);
 
     // --- คำนวณจำนวนสถานีวิกฤต/เฝ้าระวัง จาก waterHistory ---
     const alertCounts = useMemo(() => {
@@ -55,41 +56,49 @@ const DashboardPage = () => {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const envDeviceId  = deviceId;
+                const envDeviceId  = import.meta.env.VITE_API_DEVICE_ID        || "MOCK_DEVICE_001";
                 const secretKey    = import.meta.env.VITE_API_deviceSecretKey  || "MOCK_KEY";
                 const endTime      = Date.now();
                 const startTime    = endTime - (24 * 60 * 60 * 1000);
 
-                let infoRes, waterRes, rainRes;
+                let infoRes, waterRes, rainRes, probRes;
 
                 if (USE_MOCK_DATA) {
                     infoRes = await MockDeviceService.getStationInfo(envDeviceId);
                     const results = await Promise.all([
                         MockDeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
                         MockDeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
+                        MockDeviceService.getRainProbability(),
                     ]);
-                    [waterRes, rainRes] = results;
+                    [waterRes, rainRes, probRes] = results;
                 } else {
                     infoRes = await DeviceService.getStationInfo(envDeviceId);
                     const results = await Promise.all([
                         DeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
                         DeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
+                        DeviceService.getRainProbability(),
                     ]);
-                    [waterRes, rainRes] = results;
+                    [waterRes, rainRes, probRes] = results;
                 }
 
                 if (infoRes) {
                     setStationName(infoRes.customName || infoRes.monitorName || "Unknown Station");
-                    if (infoRes.deviceLocation) {
-                        setLocation({
-                            lat: parseFloat(infoRes.deviceLocation.latitude) || 18.586659,
-                            lng: parseFloat(infoRes.deviceLocation.longitude) || 99.023166
-                        });
-                    }
                 }
 
                 setWaterHistory(waterRes || []);
                 setRainHistory(rainRes   || []);
+                setProbData(probRes      || []);
+
+                setTimeout(() => {
+                    if (probScrollRef.current) {
+                        const bangkokNow = new Date().toLocaleString('en-US', {
+                            timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false,
+                        });
+                        const currentHour = parseInt(bangkokNow, 10);
+                        const rowIndex    = currentHour >= 1 ? currentHour - 1 : 23;
+                        probScrollRef.current.scrollTop = Math.max(0, rowIndex * 26);
+                    }
+                }, 100);
 
             } catch (error) {
                 console.error("Error:", error);
@@ -98,7 +107,7 @@ const DashboardPage = () => {
             }
         };
         fetchData();
-    }, [deviceId]);
+    }, []);
 
     const stationList: StationData[] = useMemo(() => {
         const mainStation: StationData = {
@@ -144,20 +153,37 @@ const DashboardPage = () => {
                     </div>
 
                     <div className={styles.controlBar}>
-                        <select 
-                            className={styles.selectInput} 
-                            value={deviceId} 
-                            onChange={(e) => setDeviceId(e.target.value)}
-                        >
-                            {MOCK_STATIONS.map((station) => (
-                                <option key={station.deviceId} value={station.deviceId}>
-                                    {station.stationName}
-                                </option>
-                            ))}
+                        <select className={styles.selectInput}>
+                            <option>ประเภทข้อมูล</option>
+                        </select>
+                        <select className={styles.selectInput}>
+                            <option>ตั้งค่ากราฟ</option>
                         </select>
                     </div>
                 </div>
 
+                <div className={styles.topRight}>
+                    <div className={styles.probTableCard}>
+                        <div className={styles.probHeader}>เปอร์เซ็นต์การเกิดฝน</div>
+                        <div className={styles.probGridHeader}>
+                            <div className={styles.probTimeCol}>time</div>
+                            <div>Sun</div><div>M</div><div>Tu</div>
+                            <div>W</div><div>Th</div><div>Fr</div><div>St</div>
+                        </div>
+                        <div className={styles.probScrollArea} ref={probScrollRef}>
+                            <div className={styles.probGrid}>
+                                {probData.map((row, idx) => (
+                                    <span key={idx} className={styles.probRowContents}>
+                                        <div className={styles.probTimeCol}>{row.time}</div>
+                                        <div>{row.sun}</div><div>{row.mon}</div><div>{row.tue}</div>
+                                        <div>{row.wed}</div><div>{row.thu}</div><div>{row.fri}</div>
+                                        <div>{row.sat}</div>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             {/* --- ส่วนกลาง: กราฟ — ลำดับที่ 3 (Threshold Lines) --- */}
