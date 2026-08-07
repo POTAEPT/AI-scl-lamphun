@@ -132,7 +132,7 @@ const MenuBar = () => {
   const location     = useLocation();
   const [showSearch, setShowSearch] = useState(false);
   const [showUser,   setShowUser]   = useState(false);
-  const [hasAlert,   setHasAlert]   = useState(true); // TODO: มาจาก alertCounts จริงๆ
+  const [hasAlert]   = useState(true); // TODO: มาจาก alertCounts จริงๆ
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);

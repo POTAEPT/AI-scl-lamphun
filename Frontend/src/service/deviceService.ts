@@ -1,4 +1,12 @@
 
+import { 
+  MOCK_STATIONS, 
+  MOCK_LATEST_STATIONS, 
+  generateMockHistory, 
+  getMockStationInfo, 
+  generateRainProbability 
+} from '../data/mockData';
+
 export interface DeviceLatestResponse {
   code: number;
   monitorValue: string;
@@ -83,7 +91,7 @@ const handleResponse = async (response: Response) => {
 };
 
 // 1. Single toggle to control mock vs real API
-export let USE_MOCK_DATA = false; // Set to false for real API, true for mock
+export let USE_MOCK_DATA = true; // Set to false for real API, true for mock
 
 export const setUseMockData = (isMock: boolean) => {
   USE_MOCK_DATA = isMock;
@@ -168,7 +176,8 @@ export const DeviceService = {
 
   getStations: async (): Promise<StationDeviceInfo[]> => {
     if (USE_MOCK_DATA) {
-      return [];
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return MOCK_STATIONS;
     }
     const response = await fetch('/api/v2/stations/', {
       method: 'GET',
@@ -180,7 +189,8 @@ export const DeviceService = {
 
   getLatestStations: async (): Promise<StationLatestInfo[]> => {
     if (USE_MOCK_DATA) {
-      return [];
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return MOCK_LATEST_STATIONS;
     }
     const response = await fetch('/api/v2/stations/latest', {
       method: 'GET',
@@ -192,71 +202,22 @@ export const DeviceService = {
 };
 
 export const MockDeviceService = {
-  // ใส่ _ นำหน้า deviceId เพราะไม่ได้ใช้ใน Logic ของ Mock
-  getStationInfo: async (_deviceId: string): Promise<DeviceInfoResponse> => {
+  getStationInfo: async (deviceId: string): Promise<DeviceInfoResponse> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return {
-      monitorName: "MOCK-001",
-      customName: "Mockup Station (ลำพูน)",
-      warningLevel: 1, 
-      deviceLocation: {
-        latitude: "18.575",
-        longitude: "99.008"
-      }
-    };
+    return getMockStationInfo(deviceId);
   },
-
-  // ใส่ _ นำหน้าตัวแปรที่ไม่ได้ใช้ใน Mock Logic
   getHistory: async (
-    _deviceId: string, 
+    deviceId: string, 
     _deviceSecretKey: string, 
     monitorItem: string, 
-    _start: number, 
-    end: number // 'end' มีการใช้ในลูป เลยไม่ต้องใส่ _
+    start: number, 
+    end: number
   ): Promise<DeviceRangeData[]> => {
     await new Promise(resolve => setTimeout(resolve, 800));
-
-    const mockData: DeviceRangeData[] = [];
-    const oneHour = 60 * 60 * 1000;
-    
-    for (let i = 0; i < 24; i++) {
-      const time = end - (i * oneHour);
-      
-      let value = 0;
-      if (monitorItem === "water_level") {
-         value = 4.5 + Math.random(); 
-      } else {
-         value = Math.random() > 0.7 ? Math.random() * 20 : 0; 
-      }
-
-      mockData.push({
-        monitorTime: new Date(time).toISOString(),
-        monitorValue: value.toFixed(2)
-      });
-    }
-
-    return mockData;
+    return generateMockHistory(deviceId, monitorItem, start, end);
   },
-
-  // ... (ส่วนที่เหลือคงเดิม) ...
   getRainProbability: async (): Promise<RainProbabilityData[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const rows: RainProbabilityData[] = [];
-    for (let h = 1; h <= 24; h++) {
-      const hour = h % 24;
-      const base = hour >= 6 && hour <= 18 ? 30 : 10;
-      rows.push({
-        time: `${String(hour).padStart(2, '0')}:00`,
-        sun: Math.round(base + Math.random() * 40),
-        mon: Math.round(base + Math.random() * 40),
-        tue: Math.round(base + Math.random() * 40),
-        wed: Math.round(base + Math.random() * 40),
-        thu: Math.round(base + Math.random() * 40),
-        fri: Math.round(base + Math.random() * 40),
-        sat: Math.round(base + Math.random() * 40),
-      });
-    }
-    return rows;
+    return generateRainProbability();
   }
 };
