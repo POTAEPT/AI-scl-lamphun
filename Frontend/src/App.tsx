@@ -15,7 +15,7 @@ function App() {
 
   useEffect(() => {
     if (BYPASS_LOGIN) {
-      setIsLoading(true);
+      setIsLoading(false);
       return;
     }
 
