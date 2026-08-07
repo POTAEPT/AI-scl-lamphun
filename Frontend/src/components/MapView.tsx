@@ -27,6 +27,8 @@ export interface StationData {
 
 interface MapViewProps {
   stations: StationData[];
+  selectedStationId?: string;
+  onStationClick?: (id: string) => void;
 }
 
 // --- Helper Component ---
@@ -42,8 +44,21 @@ const FitBoundsToMarkers = ({ stations }: { stations: StationData[] }) => {
   return null;
 };
 
+const FlyToStation = ({ selectedId, stations }: { selectedId?: string, stations: StationData[] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (selectedId) {
+      const target = stations.find(s => s.id === selectedId);
+      if (target) {
+        map.flyTo([target.lat, target.lng], 16, { animate: true, duration: 1.5 });
+      }
+    }
+  }, [selectedId, stations, map]);
+  return null;
+};
+
 // --- Main Component ---
-function MapView({ stations = [] }: MapViewProps) {
+function MapView({ stations = [], selectedStationId, onStationClick }: MapViewProps) {
   
   /* const handleViewDetails = (id: string | number) => {
       console.log("Navigating to sensor details:", id);
@@ -64,12 +79,16 @@ function MapView({ stations = [] }: MapViewProps) {
         />
 
         <FitBoundsToMarkers stations={stations} />
+        <FlyToStation selectedId={selectedStationId} stations={stations} />
         
         {stations.map((station) => (
           <Marker 
             key={station.id} 
             position={[station.lat, station.lng]} 
             icon={CUSTOM_ICON}
+            eventHandlers={{
+              click: () => onStationClick?.(String(station.id))
+            }}
           >
             <Popup minWidth={180}>
               {/* ใช้ className แทน style */}

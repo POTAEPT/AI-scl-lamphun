@@ -34,7 +34,6 @@ interface MapStation {
   rainfall: number;
 }
 
-// ---- Component For Auto-centering Map to Markers ----
 const UpdateMapBounds = ({ stations }: { stations: MapStation[] }) => {
   const map = useMap();
   useEffect(() => {
@@ -46,11 +45,25 @@ const UpdateMapBounds = ({ stations }: { stations: MapStation[] }) => {
   return null;
 };
 
+const FlyToStation = ({ selectedId, stations }: { selectedId: string | null, stations: MapStation[] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (selectedId) {
+      const target = stations.find(s => s.id === selectedId);
+      if (target) {
+        map.flyTo([target.lat, target.lng], 16, { animate: true, duration: 1.5 });
+      }
+    }
+  }, [selectedId, stations, map]);
+  return null;
+};
+
 // ---- Main Component ----
 const MapGIS = () => {
   const [search, setSearch] = useState("");
   const [stations, setStations] = useState<MapStation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStations = async () => {
@@ -128,13 +141,21 @@ const MapGIS = () => {
           zoomControl={false}
         >
           <UpdateMapBounds stations={filtered} />
+          <FlyToStation selectedId={selectedStationId} stations={stations} />
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           />
 
           {filtered.map((s) => (
-            <Marker key={s.id} position={[s.lat, s.lng]} icon={icons[s.status]}>
+            <Marker 
+              key={s.id} 
+              position={[s.lat, s.lng]} 
+              icon={icons[s.status]}
+              eventHandlers={{
+                click: () => setSelectedStationId(s.id)
+              }}
+            >
               <Popup className={styles.customPopup} closeButton={false}>
                 <div className={styles.popupCard}>
                   <div className={styles.popupTitle}>{s.name}</div>
@@ -196,7 +217,12 @@ const MapGIS = () => {
               {/* Station List */}
               <div className={styles.stationList}>
                 {filtered.map((s) => (
-                  <div key={s.id} className={styles.stationRow}>
+                  <div 
+                    key={s.id} 
+                    className={`${styles.stationRow} ${selectedStationId === s.id ? styles.selected : ''}`}
+                    onClick={() => setSelectedStationId(s.id)}
+                    style={{ cursor: 'pointer', background: selectedStationId === s.id ? 'var(--color-bg-surface)' : 'transparent' }}
+                  >
                     <span className={styles.stationName}>{s.name}</span>
                     <span className={styles.stationDetail}>{s.detail}</span>
                   </div>

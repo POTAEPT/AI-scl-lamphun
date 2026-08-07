@@ -111,24 +111,13 @@ const StationPage: React.FC = () => {
 
   const [isLoading,    setIsLoading]    = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activeStationId, setActiveStationId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchStationData = async () => {
-      setIsLoading(true);
-      setErrorMessage(null);
+    const fetchLatest = async () => {
       try {
-        const secretKey = import.meta.env.VITE_API_deviceSecretKey || 'MOCK_KEY';
-        const endTime   = Date.now();
-        const startTime = endTime - 7 * 24 * 60 * 60 * 1000; // ดึง 7 วันล่วงหน้าเก็บไว้
-
         const latestData = await DeviceService.getLatestStations();
-
-        if (latestData.length === 0) {
-          setErrorMessage('ไม่พบสถานี');
-          setIsLoading(false);
-          return;
-        }
-
+        if (latestData.length === 0) return;
         setLatestStations(latestData);
 
         const uniqueStationsMap = new Map<string, StationDeviceInfo>();
@@ -145,15 +134,40 @@ const StationPage: React.FC = () => {
             });
           }
         }
-        setStations(Array.from(uniqueStationsMap.values()));
+        const stationsArr = Array.from(uniqueStationsMap.values());
+        setStations(stationsArr);
+        
+        setActiveStationId(prev => prev || stationsArr[0].stationId);
+      } catch (error) {
+        console.error('Error fetching stations:', error);
+      }
+    };
+    fetchLatest();
+  }, []);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!activeStationId || latestStations.length === 0) return;
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const secretKey = import.meta.env.VITE_API_deviceSecretKey || 'MOCK_KEY';
+        const endTime   = Date.now();
+        const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
+
+        const devicesForStation = latestStations.filter(d => d.stationId === activeStationId);
+        if (devicesForStation.length === 0) {
+          setIsLoading(false);
+          return;
+        }
 
         setStationInfo({
-          monitorName:    latestData[0].monitorItem,
-          customName:     latestData[0].stationName,
+          monitorName:    devicesForStation[0].monitorItem,
+          customName:     devicesForStation[0].stationName,
           warningLevel:   0,
           deviceLocation: {
-            latitude:  latestData[0].latitude,
-            longitude: latestData[0].longitude,
+            latitude:  devicesForStation[0].latitude,
+            longitude: devicesForStation[0].longitude,
           },
         });
 
@@ -161,7 +175,7 @@ const StationPage: React.FC = () => {
         const rainData:  DeviceRangeData[] = [];
 
         await Promise.all(
-          latestData.map(async (device) => {
+          devicesForStation.map(async (device) => {
             const data = await DeviceService.getHistory(
               device.deviceId, secretKey, device.monitorItem, startTime, endTime
             );
@@ -173,7 +187,6 @@ const StationPage: React.FC = () => {
             }
           })
         );
-
         setWaterHistory(waterData);
         setRainHistory(rainData);
       } catch (error) {
@@ -183,9 +196,8 @@ const StationPage: React.FC = () => {
         setIsLoading(false);
       }
     };
-
-    fetchStationData();
-  }, []);
+    fetchHistory();
+  }, [activeStationId, latestStations]);
 
   // แปลงข้อมูลกราฟ — รวม 2 เส้น + กรองตาม timeRange (ลำดับที่ 5 + 6)
   const rangeMs = useMemo(
@@ -224,39 +236,29 @@ const StationPage: React.FC = () => {
   }, [mapStations, searchKeyword]);
 
   const latestWaterValue = useMemo(() => {
-    const d = latestStations.find(s =>
-      s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')
-    );
+    const d = latestStations.find(s => s.stationId === activeStationId && (s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')));
     return d?.monitorValue ? parseFloat(d.monitorValue).toFixed(3) : '-';
-  }, [latestStations]);
+  }, [latestStations, activeStationId]);
 
   const latestRainValue = useMemo(() => {
-    const d = latestStations.find(s =>
-      s.monitorItem.toLowerCase().includes('yl_') || s.monitorItem.toLowerCase().includes('rain')
-    );
+    const d = latestStations.find(s => s.stationId === activeStationId && (s.monitorItem.toLowerCase().includes('yl_') || s.monitorItem.toLowerCase().includes('rain')));
     return d?.monitorValue ? parseFloat(d.monitorValue).toFixed(3) : '-';
-  }, [latestStations]);
-
-  const latestSignal = useMemo(() => {
-    const d = latestStations.find(s =>
-      s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')
-    );
-    return d?.signal || 'offline';
-  }, [latestStations]);
-
-  const latestBattery = useMemo(() => {
-    const d = latestStations.find(s =>
-      s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')
-    );
-    return d?.battery ?? 0;
-  }, [latestStations]);
+  }, [latestStations, activeStationId]);
 
   const latestReportTime = useMemo(() => {
-    const d = latestStations.find(s =>
-      s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')
-    );
+    const d = latestStations.find(s => s.stationId === activeStationId && (s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')));
     return d?.monitorTime || '';
-  }, [latestStations]);
+  }, [latestStations, activeStationId]);
+
+  const latestSignal = useMemo(() => {
+    const d = latestStations.find(s => s.stationId === activeStationId && (s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')));
+    return d?.signal || 'offline';
+  }, [latestStations, activeStationId]);
+
+  const latestBattery = useMemo(() => {
+    const d = latestStations.find(s => s.stationId === activeStationId && (s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')));
+    return Number(d?.battery ?? 0);
+  }, [latestStations, activeStationId]);
 
   // Y domain คำนวณอัตโนมัติพร้อม threshold
   const waterYMax = useMemo(() => {
@@ -279,7 +281,11 @@ const StationPage: React.FC = () => {
       {/* ส่วนที่ 1: แผนที่ + Panel */}
       <div className={styles.topSection}>
         <div className={styles.mapWrapper}>
-          <MapView stations={mapStations} />
+          <MapView 
+            stations={mapStations} 
+            selectedStationId={activeStationId ?? undefined} 
+            onStationClick={setActiveStationId} 
+          />
         </div>
 
         <div className={styles.searchPanel}>
@@ -302,7 +308,12 @@ const StationPage: React.FC = () => {
           <div className={styles.panelStationList}>
             {filteredMapStations.length > 0 ? (
               filteredMapStations.map((station) => (
-                <div key={station.id} className={styles.panelStationRow}>
+                <div 
+                  key={station.id} 
+                  className={`${styles.panelStationRow} ${activeStationId === station.id ? styles.active : ''}`}
+                  onClick={() => setActiveStationId(String(station.id))}
+                  style={{ cursor: 'pointer', background: activeStationId === station.id ? 'var(--color-bg-surface)' : 'transparent' }}
+                >
                   <span className={styles.panelStationName}>{station.name}</span>
                   <span className={styles.panelStationLocation}>
                     {`${Number(station.lat).toFixed(4)}, ${Number(station.lng).toFixed(4)}`}
