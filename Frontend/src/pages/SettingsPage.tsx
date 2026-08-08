@@ -256,8 +256,13 @@ const AlertsTab: React.FC<{
     setLevels(init);
   }, [stations]);
 
-  const handleSave = async (_stationId: string, name: string) => {
+  const handleSave = async (stationId: string, name: string) => {
     try {
+      const savedLevelsStr = localStorage.getItem('mock_warning_levels');
+      const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
+      savedLevels[stationId] = levels[stationId];
+      localStorage.setItem('mock_warning_levels', JSON.stringify(savedLevels));
+      
       // TODO: เรียก PATCH /api/v2/stations/:id { warningLevel: levels[stationId] }
       await new Promise(r => setTimeout(r, 500));
       onShowToast(`บันทึกระดับเตือนของ "${name}" สำเร็จ`, 'success');
@@ -291,7 +296,7 @@ const AlertsTab: React.FC<{
           {stations.map((s) => {
             const currentLevel = levels[s.id] ?? s.warningLevel;
             const criticalLevel = parseFloat((currentLevel * 1.1).toFixed(2));
-            const maxRange = Math.max(currentLevel * 1.5, 10);
+            const maxRange = Math.max(s.warningLevel * 2, 10); // Fix infinite loop bug
 
             return (
               <div key={s.id} className={styles.alertCard}>
@@ -321,6 +326,7 @@ const AlertsTab: React.FC<{
                         step={0.1}
                         value={currentLevel}
                         className={styles.sliderWarning}
+                        style={{ '--val': `${(currentLevel / maxRange) * 100}%` } as React.CSSProperties}
                         onChange={(e) =>
                           setLevels(prev => ({ ...prev, [s.id]: parseFloat(e.target.value) }))
                         }
@@ -345,7 +351,7 @@ const AlertsTab: React.FC<{
                         value={criticalLevel}
                         className={styles.sliderCritical}
                         readOnly
-                        style={{ opacity: 0.55, cursor: 'not-allowed' }}
+                        style={{ opacity: 0.55, cursor: 'not-allowed', '--val': `${(criticalLevel / maxRange) * 100}%` } as React.CSSProperties}
                       />
                       <span className={styles.sliderValue} style={{ color: 'var(--color-status-critical)' }}>
                         {criticalLevel.toFixed(2)} ม.
@@ -448,7 +454,9 @@ const SettingsPage = () => {
         for (const s of latestData) {
           if (!map.has(s.stationId)) {
             const wl = parseFloat(s.monitorValue) || 0;
-            const warningLevel = 4.5; // TODO: มาจาก s.warningLevel เมื่อ backend ส่งมา
+            const savedLevelsStr = localStorage.getItem('mock_warning_levels');
+            const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
+            const warningLevel = savedLevels[s.stationId] ?? 4.5; // TODO: มาจาก s.warningLevel เมื่อ backend ส่งมา
             const criticalLevel = parseFloat((warningLevel * 1.1).toFixed(2));
             const status: SettingsStation['status'] =
               wl >= criticalLevel ? 'critical' :

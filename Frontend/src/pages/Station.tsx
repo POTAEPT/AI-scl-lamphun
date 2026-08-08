@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine
@@ -100,6 +101,9 @@ const CustomTooltip: React.FC<{
 
 // ---- Main Component ----
 const StationPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const urlStationId = searchParams.get('id');
+
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedRange, setSelectedRange] = useState<TimeRange>('24h'); // ลำดับที่ 6
 
@@ -111,7 +115,7 @@ const StationPage: React.FC = () => {
 
   const [isLoading,    setIsLoading]    = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeStationId, setActiveStationId] = useState<string | null>(null);
+  const [activeStationId, setActiveStationId] = useState<string | null>(urlStationId);
 
   useEffect(() => {
     const fetchLatest = async () => {
@@ -137,7 +141,7 @@ const StationPage: React.FC = () => {
         const stationsArr = Array.from(uniqueStationsMap.values());
         setStations(stationsArr);
         
-        setActiveStationId(prev => prev || stationsArr[0].stationId);
+        setActiveStationId(prev => prev || urlStationId || stationsArr[0]?.stationId);
       } catch (error) {
         console.error('Error fetching stations:', error);
       }
