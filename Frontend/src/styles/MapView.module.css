@@ -92,3 +92,70 @@
 .popupButton:active {
   transform: translateY(0);
 }
+
+/* =======================================
+   Dynamic Map Markers
+   ======================================= */
+.markerContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  position: relative;
+}
+
+.markerDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  position: relative;
+  z-index: 2;
+}
+
+/* Pulsing effect for critical */
+.markerPulse::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  animation: markerPulseAnim 1.5s infinite;
+  z-index: 1;
+}
+
+@keyframes markerPulseAnim {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+
+/* Colors */
+.markerCritical { background-color: #ef4444; }
+.markerPulse.markerCritical::before { background-color: #ef4444; }
+
+.markerWarning { background-color: #f59e0b; }
+.markerPulse.markerWarning::before { background-color: #f59e0b; }
+
+.markerNormal { background-color: #10b981; }
+.markerOffline { background-color: #94a3b8; }
+
+/* Status Text in Popup */
+.statusBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  margin-top: 8px;
+}
+.bgCritical { background-color: #ef4444; }
+.bgWarning { background-color: #f59e0b; }
+.bgNormal { background-color: #10b981; }
+.bgOffline { background-color: #94a3b8; }

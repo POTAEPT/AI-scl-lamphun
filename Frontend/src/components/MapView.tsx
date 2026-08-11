@@ -5,24 +5,37 @@ import L from 'leaflet';
 import styles from '../styles/MapView.module.css';
 
 // --- Configuration ---
-const CUSTOM_ICON = new L.Icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', 
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [35, 35],
-  iconAnchor: [17, 35],
-  popupAnchor: [0, -30],
-  shadowSize: [41, 41]
-});
+const createCustomIcon = (status: StationData['status']) => {
+  let colorClass = styles.markerNormal;
+  if (status === 'critical') colorClass = styles.markerCritical;
+  else if (status === 'warning') colorClass = styles.markerWarning;
+  else if (status === 'offline') colorClass = styles.markerOffline;
+
+  const html = `
+    <div class="${styles.markerContainer}">
+      <div class="${styles.markerDot} ${colorClass}"></div>
+      ${status === 'critical' || status === 'warning' ? `<div class="${styles.markerPulse} ${colorClass}"></div>` : ''}
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: '',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  });
+};
 
 const DEFAULT_CENTER: [number, number] = [18.598899,99.031880];
 
-// --- Types ---
 export interface StationData {
   id: string | number;
   name: string;
   lat: number;
   lng: number;
-  status?: 'active' | 'inactive';
+  status: 'critical' | 'warning' | 'normal' | 'offline';
+  waterLevel?: number | string;
 }
 
 interface MapViewProps {
@@ -31,19 +44,9 @@ interface MapViewProps {
   onStationClick?: (id: string) => void;
 }
 
+
+
 // --- Helper Component ---
-const FitBoundsToMarkers = ({ stations }: { stations: StationData[] }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (stations.length === 0) return;
-    const bounds = L.latLngBounds(stations.map(s => [s.lat, s.lng]));
-    map.fitBounds(bounds, { padding: [50, 50] });
-  }, [stations, map]);
-
-  return null;
-};
-
 const FlyToStation = ({ selectedId, stations }: { selectedId?: string, stations: StationData[] }) => {
   const map = useMap();
   useEffect(() => {
@@ -52,6 +55,9 @@ const FlyToStation = ({ selectedId, stations }: { selectedId?: string, stations:
       if (target) {
         map.flyTo([target.lat, target.lng], 16, { animate: true, duration: 1.5 });
       }
+    } else if (stations.length > 0) {
+      const bounds = L.latLngBounds(stations.map(s => [s.lat, s.lng]));
+      map.flyToBounds(bounds, { animate: true, duration: 1.5, padding: [50, 50] });
     }
   }, [selectedId, stations, map]);
   return null;
@@ -78,30 +84,37 @@ function MapView({ stations = [], selectedStationId, onStationClick }: MapViewPr
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
-        <FitBoundsToMarkers stations={stations} />
+
         <FlyToStation selectedId={selectedStationId} stations={stations} />
         
         {stations.map((station) => (
           <Marker 
             key={station.id} 
             position={[station.lat, station.lng]} 
-            icon={CUSTOM_ICON}
+            icon={createCustomIcon(station.status)}
             eventHandlers={{
               click: () => onStationClick?.(String(station.id))
             }}
           >
             <Popup minWidth={180}>
-              {/* ใช้ className แทน style */}
               <div className={styles.popupContainer}>
-                
-                <h4 className={styles.popupTitle}>
-                  {station.name}
-                </h4>
-                
+                <h4 className={styles.popupTitle}>{station.name}</h4>
                 <div className={styles.popupInfo}>
-                  <div><strong>ID:</strong> {station.id}</div>
-                  <div><strong>Lat:</strong> {station.lat.toFixed(4)}</div>
-                  <div><strong>Lng:</strong> {station.lng.toFixed(4)}</div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <span style={{ color: '#6b7280', fontSize: '12px' }}>ระดับน้ำ:</span><br/>
+                    <strong style={{ fontSize: '18px', color: '#111827' }}>
+                      {station.waterLevel ?? '-'} ม.
+                    </strong>
+                  </div>
+                  <div className={`${styles.statusBadge} ${
+                    station.status === 'critical' ? styles.bgCritical :
+                    station.status === 'warning' ? styles.bgWarning :
+                    station.status === 'offline' ? styles.bgOffline : styles.bgNormal
+                  }`}>
+                    {station.status === 'critical' ? 'วิกฤต' :
+                     station.status === 'warning' ? 'เฝ้าระวัง' :
+                     station.status === 'offline' ? 'ออฟไลน์' : 'ปกติ'}
+                  </div>
                 </div>
 
                 {/* <button 

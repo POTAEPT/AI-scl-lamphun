@@ -1,88 +1,109 @@
 // src/pages/DashboardPage.tsx
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import StationTable from '../components/Dashboard-StationTable';
 import AlertCard from '../components/AlertCard';
-import { DeviceService, MockDeviceService, type DeviceRangeData } from '../service/deviceService';
-import WaterLevelChart from '../components/WaterLevelChart';
+import { DeviceService, type StationLatestInfo } from '../service/deviceService';
+import DashboardChart from '../components/DashboardChart';
 import DataCard from '../components/DataCard';
-import { STATIC_STATIONS } from '../data/stationList';
-import type { StationData } from '../components/MapView';
+
 import styles from '../styles/DashboradPage.module.css';
 
 // *** ตัวสลับโหมด ***
 const USE_MOCK_DATA = true;
 
-// hardcode ค่าเริ่มต้นของสถานีหลัก (สำหรับ mock data)
-// *** ค่าระดับน้ำ Threshold (ปรับตามจริง) ***
-const WARNING_LEVEL  = 4.5;  // เมตร — เส้นเฝ้าระวัง
-const CRITICAL_LEVEL = 5.0;  // เมตร — เส้นวิกฤต
-
 const DashboardPage = () => {
-    const [stationName, setStationName] = useState<string>("Loading Station...");
-    const [deviceId] = useState<string>("UNKNOWN_ID");
-    const [location] = useState<{lat: number, lng: number}>({
-        lat: 18.586659,
-        lng: 99.023166,
-    });
-
     const [waterValue, setWaterValue] = useState<string>("---");
+    const [waterSubtitle, setWaterSubtitle] = useState<string>("");
     const [rainValue,  setRainValue]  = useState<string>("---");
 
-    const [waterHistory, setWaterHistory] = useState<DeviceRangeData[]>([]);
-    const [rainHistory,  setRainHistory]  = useState<DeviceRangeData[]>([]);
+    // waterHistory and rainHistory are no longer used since we only use latestStations for the dashboard.
+
+    const [latestStations, setLatestStations] = useState<StationLatestInfo[]>([]);
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
-    // --- คำนวณจำนวนสถานีวิกฤต/เฝ้าระวัง จาก waterHistory ---
-    const alertCounts = useMemo(() => {
-        // ดึงค่าล่าสุดของแต่ละสถานี (ตอนนี้มีสถานีเดียว ใช้ค่าล่าสุด)
-        if (waterHistory.length === 0) return { critical: 0, warning: 0 };
 
-        const latestValue = parseFloat(waterHistory[0]?.monitorValue ?? "0");
-        if (latestValue >= CRITICAL_LEVEL) return { critical: 1, warning: 0 };
-        if (latestValue >= WARNING_LEVEL)  return { critical: 0, warning: 1 };
-        return { critical: 0, warning: 0 };
-    }, [waterHistory]);
+    
+    const [alertCounts, setAlertCounts] = useState({ critical: 0, warning: 0 });
 
-    const handleDataUpdate = useCallback((water: number, rain: number) => {
-        setWaterValue(water.toFixed(3));
-        setRainValue(rain.toFixed(3));
-    }, []);
+
 
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const envDeviceId  = import.meta.env.VITE_API_DEVICE_ID        || "MOCK_DEVICE_001";
-                const secretKey    = import.meta.env.VITE_API_deviceSecretKey  || "MOCK_KEY";
-                const endTime      = Date.now();
-                const startTime    = endTime - (24 * 60 * 60 * 1000);
-
-                let infoRes, waterRes, rainRes;
+                let latestRes;
 
                 if (USE_MOCK_DATA) {
-                    infoRes = await MockDeviceService.getStationInfo(envDeviceId);
                     const results = await Promise.all([
-                        MockDeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
-                        MockDeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
+                        DeviceService.getLatestStations()
                     ]);
-                    [waterRes, rainRes] = results;
+                    latestRes = results[0];
                 } else {
-                    infoRes = await DeviceService.getStationInfo(envDeviceId);
                     const results = await Promise.all([
-                        DeviceService.getHistory(envDeviceId, secretKey, "water_level", startTime, endTime),
-                        DeviceService.getHistory(envDeviceId, secretKey, "rain_fall",   startTime, endTime),
+                        DeviceService.getLatestStations()
                     ]);
-                    [waterRes, rainRes] = results;
+                    latestRes = results[0];
                 }
 
-                if (infoRes) {
-                    setStationName(infoRes.customName || infoRes.monitorName || "Unknown Station");
+                // --- ตรวจสอบ Alert และคำนวณค่าสูงสุด/เฉลี่ยจากข้อมูลล่าสุดของทุกสถานี ---
+                if (latestRes && latestRes.length > 0) {
+                    const savedLevelsStr = localStorage.getItem('mock_warning_levels');
+                    const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
+                    let warning = 0;
+                    let critical = 0;
+                    let maxWater = -Infinity;
+                    let maxWaterStationName = "";
+                    let totalRain = 0;
+                    let rainCount = 0;
+                    
+                    latestRes.forEach((s: any) => {
+                        const val = parseFloat(s.monitorValue) || 0;
+                        const isWater = s.monitorItem.toLowerCase().includes('water') || s.monitorItem.toLowerCase().includes('nw_');
+                        
+                        if (isWater) {
+                            const wLevel = savedLevels[s.stationId] ?? 4.5;
+                            const cLevel = wLevel * 1.1;
+                            if (val >= cLevel) critical++;
+                            else if (val >= wLevel) warning++;
+
+                            if (val > maxWater) {
+                                maxWater = val;
+                                maxWaterStationName = s.stationName || s.stationId;
+                            }
+                        } else {
+                            // Rain
+                            if (!isNaN(val)) {
+                                totalRain += val;
+                                rainCount++;
+                            }
+                        }
+                    });
+                    
+                    // --- การเรียงลำดับความสำคัญ (Sorting by Severity) ---
+                    // ให้ความสำคัญกับสถานีที่วิกฤต (Critical) > เฝ้าระวัง (Warning) > ปกติ (Normal)
+                    latestRes.sort((a: any, b: any) => {
+                        const getSeverity = (station: any) => {
+                            const isWater = station.monitorItem.toLowerCase().includes('water') || station.monitorItem.toLowerCase().includes('nw_');
+                            if (!isWater) return 0;
+                            const val = parseFloat(station.monitorValue) || 0;
+                            const wLevel = savedLevels[station.stationId] ?? 4.5;
+                            const cLevel = wLevel * 1.1;
+                            if (val >= cLevel) return 2; // Critical
+                            if (val >= wLevel) return 1; // Warning
+                            return 0; // Normal
+                        };
+                        return getSeverity(b) - getSeverity(a); // เรียงจากมากไปน้อย
+                    });
+
+                    setAlertCounts({ critical, warning });
+                    setWaterValue(maxWater !== -Infinity ? maxWater.toFixed(2) : "---");
+                    setWaterSubtitle(maxWater !== -Infinity ? `จากสถานี: ${maxWaterStationName}` : "");
+                    setRainValue(rainCount > 0 ? (totalRain / rainCount).toFixed(2) : "---");
                 }
 
-                setWaterHistory(waterRes || []);
-                setRainHistory(rainRes   || []);
+                setLatestStations(latestRes || []);
 
             } catch (error) {
                 console.error("Error:", error);
@@ -93,16 +114,7 @@ const DashboardPage = () => {
         fetchData();
     }, []);
 
-    const stationList: StationData[] = useMemo(() => {
-        const mainStation: StationData = {
-            id: deviceId,
-            name: stationName,
-            lat: location.lat,
-            lng: location.lng,
-            status: 'active',
-        };
-        return [mainStation, ...STATIC_STATIONS];
-    }, [deviceId, stationName, location]);
+
 
     return (
         <main className={styles.container}>
@@ -111,54 +123,48 @@ const DashboardPage = () => {
             <section className={styles.topSection}>
                 <div className={styles.topLeft}>
                     <div className={styles.cardGrid}>
-                        <DataCard
-                            title="จำนวนสถานี"
-                            value={stationList.length}
-                            unit="สถานี"
-                            theme="blue"
-                        />
-                        <DataCard
-                            title="ระดับน้ำ"
-                            value={waterValue}
-                            unit="เมตร"
-                            theme="orange"
-                        />
-                        <DataCard
-                            title="ปริมาณน้ำฝนสะสม"
-                            value={rainValue}
-                            unit="มม./ชม."
-                            theme="orange"
-                        />
-                        {/* การ์ดแจ้งเตือน — ลำดับที่ 2 */}
+                        {/* การ์ดแจ้งเตือน (ความสำคัญสูงสุด - เอาไว้ซ้ายสุด) */}
                         <AlertCard
                             criticalCount={alertCounts.critical}
                             warningCount={alertCounts.warning}
+                        />
+                        <DataCard
+                            title="ระดับน้ำสูงสุด"
+                            value={waterValue}
+                            unit="เมตร"
+                            theme="orange"
+                            subtitle={waterSubtitle}
+                        />
+                        <DataCard
+                            title="ปริมาณน้ำฝนเฉลี่ย"
+                            value={rainValue}
+                            unit="มม./ชม."
+                            theme="orange"
+                            subtitle="ข้อมูลจากทุกสถานี"
+                        />
+                        <DataCard
+                            title="จำนวนสถานี"
+                            value={latestStations.length || 1}
+                            unit="สถานี"
+                            theme="blue"
                         />
                     </div>
                 </div>
 
             </section>
 
-            {/* --- ส่วนกลาง: กราฟ — ลำดับที่ 3 (Threshold Lines) --- */}
+            {/* --- ส่วนกลาง: กราฟ (Bar Chart ภาพรวม) --- */}
             <section className={styles.chartSection}>
                 <div className={styles.chartWrapper}>
-                    <WaterLevelChart
-                        waterData={waterHistory}
-                        rainData={rainHistory}
-                        onDataUpdate={handleDataUpdate}
-                        warningLevel={WARNING_LEVEL}
-                        criticalLevel={CRITICAL_LEVEL}
-                    />
+                    <DashboardChart latestData={latestStations} />
                 </div>
             </section>
 
             {/* --- ส่วนล่าง: ตารางข้อมูล --- */}
             <section className={styles.tableSection}>
                 <StationTable
-                    waterData={waterHistory}
-                    rainData={rainHistory}
+                    latestStations={latestStations}
                     isLoading={isLoading}
-                    stationName={stationName}
                 />
             </section>
         </main>

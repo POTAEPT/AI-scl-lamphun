@@ -16,7 +16,7 @@ interface SettingsStation {
   battery: number;
 }
 
-type SettingsTab = 'stations' | 'alerts' | 'account';
+type SettingsTab = 'stations' | 'account';
 
 // ---- Sub: Sidebar ----
 const Sidebar: React.FC<{ activeTab: SettingsTab; onChange: (t: SettingsTab) => void }> = ({
@@ -24,8 +24,7 @@ const Sidebar: React.FC<{ activeTab: SettingsTab; onChange: (t: SettingsTab) => 
   onChange,
 }) => {
   const items: { id: SettingsTab; icon: string; label: string; sub: string }[] = [
-    { id: 'stations', icon: 'bi-broadcast-pin',  label: 'จัดการสถานี',    sub: 'เพิ่ม / แก้ไข / ลบ' },
-    { id: 'alerts',   icon: 'bi-bell-fill',       label: 'การแจ้งเตือน',   sub: 'ตั้งค่าระดับเตือน' },
+    { id: 'stations', icon: 'bi-broadcast-pin',  label: 'จัดการสถานี',    sub: 'เพิ่ม / แก้ไข / ตั้งค่าระดับเตือน' },
     { id: 'account',  icon: 'bi-person-circle',   label: 'บัญชีผู้ใช้',    sub: 'ข้อมูลและรหัสผ่าน' },
   ];
 
@@ -132,14 +131,47 @@ const AddStationModal: React.FC<{
 // ---- Tab: จัดการสถานี ----
 const StationsTab: React.FC<{
   stations: SettingsStation[];
+  setStations: React.Dispatch<React.SetStateAction<SettingsStation[]>>;
   isLoading: boolean;
   onShowToast: (msg: string, type: 'success' | 'error') => void;
-}> = ({ stations, isLoading, onShowToast }) => {
+}> = ({ stations, setStations, isLoading, onShowToast }) => {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
 
   const handleAddSuccess = (name: string) => {
     setShowAddModal(false);
     onShowToast(`เพิ่มสถานี "${name}" สำเร็จ`, 'success');
+  };
+
+  const handleSaveLevel = async (stationId: string) => {
+    try {
+      const savedLevelsStr = localStorage.getItem('mock_warning_levels');
+      const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
+      const val = parseFloat(editValue);
+      if (isNaN(val) || val <= 0) {
+        onShowToast('ค่าระดับเตือนไม่ถูกต้อง', 'error');
+        return;
+      }
+      savedLevels[stationId] = val;
+      localStorage.setItem('mock_warning_levels', JSON.stringify(savedLevels));
+      setEditingId(null);
+      
+      // อัปเดตสถานะในตารางทันทีโดยไม่ต้องรีเฟรชหน้า
+      setStations(prev => prev.map(s => {
+        if (s.id === stationId) {
+          const wl = parseFloat(s.waterLevel) || 0;
+          const criticalLevel = parseFloat((val * 1.1).toFixed(2));
+          const status = wl >= criticalLevel ? 'critical' : wl >= val ? 'warning' : s.signal === 'offline' ? 'offline' : 'normal';
+          return { ...s, warningLevel: val, criticalLevel, status };
+        }
+        return s;
+      }));
+
+      onShowToast(`บันทึกระดับเตือนสำเร็จ`, 'success');
+    } catch {
+      onShowToast('บันทึกล้มเหลว', 'error');
+    }
   };
 
   const statusColor = (s: SettingsStation['status']) =>
@@ -164,12 +196,7 @@ const StationsTab: React.FC<{
       </div>
 
       {/* Table */}
-      {isLoading ? (
-        <div className={styles.loadingState}>
-          <i className="bi bi-arrow-repeat" style={{ fontSize: 24 }} />
-          <span>กำลังโหลดข้อมูลสถานี...</span>
-        </div>
-      ) : stations.length === 0 ? (
+      {stations.length === 0 && !isLoading ? (
         <div className={styles.emptyState}>
           <i className="bi bi-broadcast-pin" style={{ fontSize: 40, opacity: 0.3 }} />
           <span>ยังไม่มีสถานี กดปุ่ม "เพิ่มสถานี" เพื่อเริ่มต้น</span>
@@ -183,12 +210,23 @@ const StationsTab: React.FC<{
                 <th>สัญญาณ</th>
                 <th>แบตเตอรี่</th>
                 <th>ระดับน้ำ (ม.)</th>
-                <th>ระดับเตือน (ม.)</th>
+                <th>ตั้งระดับเตือน (ม.)</th>
                 <th>สถานะ</th>
               </tr>
             </thead>
             <tbody>
-              {stations.map((s) => (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skel-${i}`} style={{ pointerEvents: 'none' }}>
+                    <td><div className="skeleton skeleton-text" style={{ width: '120px', margin: 0 }}></div></td>
+                    <td className={styles.centerCell}><div className="skeleton skeleton-circle" style={{ width: 20, height: 20, margin: '0 auto' }}></div></td>
+                    <td className={styles.centerCell}><div className="skeleton skeleton-circle" style={{ width: 20, height: 20, margin: '0 auto' }}></div></td>
+                    <td className={styles.centerCell}><div className="skeleton skeleton-text" style={{ width: '40px', margin: '0 auto' }}></div></td>
+                    <td className={styles.centerCell}><div className="skeleton skeleton-text" style={{ width: '60px', margin: '0 auto' }}></div></td>
+                    <td className={styles.centerCell}><div className="skeleton skeleton-text" style={{ width: '40px', margin: '0 auto' }}></div></td>
+                  </tr>
+                ))
+              ) : stations.map((s) => (
                 <tr key={s.id}>
                   <td>
                     <div className={styles.stationNameCell}>
@@ -217,7 +255,36 @@ const StationsTab: React.FC<{
                     {s.waterLevel || '-'}
                   </td>
                   <td className={styles.centerCell} style={{ fontFamily: 'var(--font-data)', color: 'var(--color-status-warning)' }}>
-                    {s.warningLevel > 0 ? s.warningLevel.toFixed(2) : '-'}
+                    {editingId === s.id ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <input 
+                          type="number"
+                          style={{ width: '60px', background: 'var(--color-bg-panel)', color: 'white', border: '1px solid #475569', borderRadius: '4px', textAlign: 'center', fontSize: '13px', padding: '2px' }}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveLevel(s.id)}
+                          autoFocus
+                        />
+                        <button style={{ background: 'none', border: 'none', color: '#10B981', cursor: 'pointer', padding: 0 }} onClick={() => handleSaveLevel(s.id)} title="บันทึก">
+                          <i className="bi bi-check2-circle" style={{ fontSize: '18px' }}></i>
+                        </button>
+                        <button style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 0 }} onClick={() => setEditingId(null)} title="ยกเลิก">
+                          <i className="bi bi-x-circle" style={{ fontSize: '18px' }}></i>
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <span>{s.warningLevel > 0 ? s.warningLevel.toFixed(2) : '-'}</span>
+                        <i 
+                          className="bi bi-pencil-square" 
+                          style={{ cursor: 'pointer', opacity: 0.5, fontSize: '14px', transition: '0.2s' }} 
+                          onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseOut={(e) => e.currentTarget.style.opacity = '0.5'}
+                          onClick={() => { setEditingId(s.id); setEditValue(s.warningLevel.toString()); }}
+                          title="แก้ไขระดับเตือน"
+                        ></i>
+                      </div>
+                    )}
                   </td>
                   <td className={styles.centerCell}>
                     <span className={styles.statusBadge} style={{
@@ -241,142 +308,7 @@ const StationsTab: React.FC<{
   );
 };
 
-// ---- Tab: การแจ้งเตือน ----
-const AlertsTab: React.FC<{
-  stations: SettingsStation[];
-  isLoading: boolean;
-  onShowToast: (msg: string, type: 'success' | 'error') => void;
-}> = ({ stations, isLoading, onShowToast }) => {
-  // local state: warningLevel ต่อสถานี (ก่อน save)
-  const [levels, setLevels] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    const init: Record<string, number> = {};
-    stations.forEach(s => { init[s.id] = s.warningLevel; });
-    setLevels(init);
-  }, [stations]);
-
-  const handleSave = async (stationId: string, name: string) => {
-    try {
-      const savedLevelsStr = localStorage.getItem('mock_warning_levels');
-      const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
-      savedLevels[stationId] = levels[stationId];
-      localStorage.setItem('mock_warning_levels', JSON.stringify(savedLevels));
-      
-      // TODO: เรียก PATCH /api/v2/stations/:id { warningLevel: levels[stationId] }
-      await new Promise(r => setTimeout(r, 500));
-      onShowToast(`บันทึกระดับเตือนของ "${name}" สำเร็จ`, 'success');
-    } catch {
-      onShowToast('บันทึกล้มเหลว กรุณาลองใหม่', 'error');
-    }
-  };
-
-  if (isLoading) return (
-    <section className={styles.tabSection}>
-      <div className={styles.loadingState}><i className="bi bi-arrow-repeat" /><span>กำลังโหลด...</span></div>
-    </section>
-  );
-
-  return (
-    <section className={styles.tabSection}>
-      <div className={styles.tabHeader}>
-        <div>
-          <h2 className={styles.tabTitle}>การแจ้งเตือน</h2>
-          <p className={styles.tabDesc}>ตั้งค่าระดับน้ำที่ต้องการแจ้งเตือนแต่ละสถานี</p>
-        </div>
-      </div>
-
-      {stations.length === 0 ? (
-        <div className={styles.emptyState}>
-          <i className="bi bi-bell-slash" style={{ fontSize: 40, opacity: 0.3 }} />
-          <span>ไม่มีสถานีให้ตั้งค่า</span>
-        </div>
-      ) : (
-        <div className={styles.alertCardList}>
-          {stations.map((s) => {
-            const currentLevel = levels[s.id] ?? s.warningLevel;
-            const criticalLevel = parseFloat((currentLevel * 1.1).toFixed(2));
-            const maxRange = Math.max(s.warningLevel * 2, 10); // Fix infinite loop bug
-
-            return (
-              <div key={s.id} className={styles.alertCard}>
-                {/* Card Header */}
-                <div className={styles.alertCardHeader}>
-                  <div className={styles.alertCardTitle}>
-                    <i className="bi bi-geo-alt-fill" style={{ color: 'var(--color-status-normal)', fontSize: 14 }} />
-                    <span>{s.name}</span>
-                  </div>
-                  <span className={styles.alertCardWater}>
-                    ระดับน้ำปัจจุบัน: <strong style={{ color: 'var(--color-status-normal)', fontFamily: 'var(--font-data)' }}>{s.waterLevel || '-'} ม.</strong>
-                  </span>
-                </div>
-
-                {/* Slider + ค่า */}
-                <div className={styles.sliderRow}>
-                  <div className={styles.sliderGroup}>
-                    <label className={styles.sliderLabel}>
-                      <i className="bi bi-exclamation-triangle-fill" style={{ color: 'var(--color-status-warning)' }} />
-                      ระดับเฝ้าระวัง
-                    </label>
-                    <div className={styles.sliderWrapper}>
-                      <input
-                        type="range"
-                        min={0}
-                        max={maxRange}
-                        step={0.1}
-                        value={currentLevel}
-                        className={styles.sliderWarning}
-                        style={{ '--val': `${(currentLevel / maxRange) * 100}%` } as React.CSSProperties}
-                        onChange={(e) =>
-                          setLevels(prev => ({ ...prev, [s.id]: parseFloat(e.target.value) }))
-                        }
-                      />
-                      <span className={styles.sliderValue} style={{ color: 'var(--color-status-warning)' }}>
-                        {currentLevel.toFixed(2)} ม.
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className={styles.sliderGroup}>
-                    <label className={styles.sliderLabel}>
-                      <i className="bi bi-x-octagon-fill" style={{ color: 'var(--color-status-critical)' }} />
-                      ระดับวิกฤต <span style={{ fontSize: 11, opacity: 0.6 }}>(อัตโนมัติ +10%)</span>
-                    </label>
-                    <div className={styles.sliderWrapper}>
-                      <input
-                        type="range"
-                        min={0}
-                        max={maxRange}
-                        step={0.1}
-                        value={criticalLevel}
-                        className={styles.sliderCritical}
-                        readOnly
-                        style={{ opacity: 0.55, cursor: 'not-allowed', '--val': `${(criticalLevel / maxRange) * 100}%` } as React.CSSProperties}
-                      />
-                      <span className={styles.sliderValue} style={{ color: 'var(--color-status-critical)' }}>
-                        {criticalLevel.toFixed(2)} ม.
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Save button */}
-                <div className={styles.alertCardFooter}>
-                  <button
-                    className={styles.btnPrimarySmall}
-                    onClick={() => handleSave(s.id, s.name)}
-                  >
-                    บันทึกค่าเตือน
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-};
 
 // ---- Tab: บัญชีผู้ใช้ ----
 const AccountTab: React.FC = () => {
@@ -505,11 +437,9 @@ const SettingsPage = () => {
         {/* Content */}
         <main className={styles.content}>
           {activeTab === 'stations' && (
-            <StationsTab stations={stations} isLoading={isLoading} onShowToast={showToast} />
+            <StationsTab stations={stations} setStations={setStations} isLoading={isLoading} onShowToast={showToast} />
           )}
-          {activeTab === 'alerts' && (
-            <AlertsTab stations={stations} isLoading={isLoading} onShowToast={showToast} />
-          )}
+
           {activeTab === 'account' && <AccountTab />}
         </main>
       </div>

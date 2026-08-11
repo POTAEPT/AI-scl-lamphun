@@ -10,7 +10,6 @@ import {
   DeviceService,
   type DeviceInfoResponse,
   type DeviceRangeData,
-  type StationDeviceInfo,
   type StationLatestInfo,
 } from '../service/deviceService';
 import styles from '../styles/StationPage.module.css';
@@ -108,13 +107,16 @@ const StationPage: React.FC = () => {
   const [selectedRange, setSelectedRange] = useState<TimeRange>('24h'); // ลำดับที่ 6
 
   const [stationInfo,    setStationInfo]    = useState<DeviceInfoResponse | null>(null);
-  const [stations,       setStations]       = useState<StationDeviceInfo[]>([]);
   const [latestStations, setLatestStations] = useState<StationLatestInfo[]>([]);
   const [waterHistory,   setWaterHistory]   = useState<DeviceRangeData[]>([]);
   const [rainHistory,    setRainHistory]    = useState<DeviceRangeData[]>([]);
 
   const [isLoading,    setIsLoading]    = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showWaterGraph, setShowWaterGraph] = useState(true);
+  const [showRainGraph, setShowRainGraph] = useState(true);
+
+  // Default to null if no url param, so the map shows overview initially
   const [activeStationId, setActiveStationId] = useState<string | null>(urlStationId);
 
   useEffect(() => {
@@ -124,24 +126,15 @@ const StationPage: React.FC = () => {
         if (latestData.length === 0) return;
         setLatestStations(latestData);
 
-        const uniqueStationsMap = new Map<string, StationDeviceInfo>();
-        for (const item of latestData) {
-          if (!uniqueStationsMap.has(item.stationId)) {
-            uniqueStationsMap.set(item.stationId, {
-              stationId:   item.stationId,
-              stationName: item.stationName,
-              latitude:    item.latitude,
-              longitude:   item.longitude,
-              deviceId:    item.deviceId,
-              deviceName:  item.deviceName,
-              monitorItem: item.monitorItem,
-            });
-          }
-        }
-        const stationsArr = Array.from(uniqueStationsMap.values());
-        setStations(stationsArr);
+        // Removed setting 'stations' as it is no longer needed
         
-        setActiveStationId(prev => prev || urlStationId || stationsArr[0]?.stationId);
+        // Only set activeStationId if explicitly requested via URL
+        if (urlStationId) {
+          setActiveStationId(urlStationId);
+        } else {
+          // If no station is active, stop loading here so the map can render
+          setIsLoading(false);
+        }
       } catch (error) {
         console.error('Error fetching stations:', error);
       }
@@ -151,9 +144,13 @@ const StationPage: React.FC = () => {
 
   useEffect(() => {
     const fetchHistory = async () => {
-      if (!activeStationId || latestStations.length === 0) return;
-      setIsLoading(true);
+      if (!activeStationId || latestStations.length === 0) {
+        setIsLoading(false);
+        return;
+      }
       setErrorMessage(null);
+      setWaterHistory([]);
+      setRainHistory([]);
       try {
         const secretKey = import.meta.env.VITE_API_deviceSecretKey || 'MOCK_KEY';
         const endTime   = Date.now();
@@ -218,20 +215,40 @@ const StationPage: React.FC = () => {
   const warningLevel = stationInfo?.warningLevel ?? 0;
 
   const mapStations: MapStationData[] = useMemo(() => {
+    const savedLevelsStr = localStorage.getItem('mock_warning_levels');
+    const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
+    
     const unique = new Map<string, MapStationData>();
-    for (const s of stations) {
+    for (const s of latestStations) {
       if (!unique.has(s.stationId)) {
+        // หาค่าระดับน้ำถ้ามี
+        const isWater = s.monitorItem.toLowerCase().includes('water') || s.monitorItem.toLowerCase().includes('nw_');
+        let status: 'critical' | 'warning' | 'normal' | 'offline' = 'normal';
+        let waterLevel: number | undefined = undefined;
+
+        if (isWater) {
+          const val = parseFloat(s.monitorValue) || 0;
+          waterLevel = val;
+          const wLevel = savedLevels[s.stationId] ?? 4.5;
+          const cLevel = wLevel * 1.1;
+
+          if (val >= cLevel) status = 'critical';
+          else if (val >= wLevel) status = 'warning';
+          // (ถ้าอยากทำ offline ค่อยเช็คจากเวลาอัปเดตล่าสุด)
+        }
+
         unique.set(s.stationId, {
           id:     s.stationId,
           name:   s.stationName || 'Unknown Station',
           lat:    parseFloat(s.latitude)  || 18.575,
           lng:    parseFloat(s.longitude) || 99.008,
-          status: 'active',
+          status,
+          waterLevel: waterLevel !== undefined ? waterLevel.toFixed(2) : undefined
         });
       }
     }
     return Array.from(unique.values());
-  }, [stations]);
+  }, [latestStations]);
 
   const filteredMapStations = useMemo(() => {
     if (!searchKeyword.trim()) return mapStations;
@@ -249,10 +266,18 @@ const StationPage: React.FC = () => {
     return d?.monitorValue ? parseFloat(d.monitorValue).toFixed(3) : '-';
   }, [latestStations, activeStationId]);
 
-  const latestReportTime = useMemo(() => {
+  const latestReportTimeObj = useMemo(() => {
     const d = latestStations.find(s => s.stationId === activeStationId && (s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')));
-    return d?.monitorTime || '';
+    if (!d?.monitorTime) return null;
+    return new Date(d.monitorTime);
   }, [latestStations, activeStationId]);
+
+  const latestReportTime = latestReportTimeObj 
+    ? latestReportTimeObj.toLocaleString('th-TH', { 
+        year: 'numeric', month: 'short', day: 'numeric', 
+        hour: '2-digit', minute: '2-digit' 
+      }) 
+    : '';
 
   const latestSignal = useMemo(() => {
     const d = latestStations.find(s => s.stationId === activeStationId && (s.monitorItem.toLowerCase().includes('nw_') || s.monitorItem.toLowerCase().includes('water')));
@@ -276,6 +301,19 @@ const StationPage: React.FC = () => {
     return Math.ceil(Math.max(...vals, 1) * 1.15);
   }, [chartData]);
 
+  const handleExportCSV = () => {
+    const headers = ["Time,Water Level (m),Rainfall (mm)"];
+    const rows = chartData.map(row => `${row.time},${row.water ?? 0},${row.rain ?? 0}`);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `station_${activeStationId}_history.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isLoading) return <div className={styles.page}><div className={styles.emptyMessage}>กำลังโหลดข้อมูล...</div></div>;
   if (errorMessage) return <div className={styles.page}><div className={styles.emptyMessage}>{errorMessage}</div></div>;
 
@@ -293,20 +331,43 @@ const StationPage: React.FC = () => {
         </div>
 
         <div className={styles.searchPanel}>
-          <div className={styles.searchBarWrapper}>
-            <i className={`bi bi-search ${styles.searchIcon}`}></i>
-            <input
-              type="text"
-              placeholder="ค้นหาสถานี..."
-              className={styles.searchInput}
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-            />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div className={styles.searchBarWrapper}>
+              <i className={`bi bi-search ${styles.searchIcon}`}></i>
+              <input
+                type="text"
+                placeholder="ค้นหาสถานี..."
+                className={styles.searchInput}
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+              />
+            </div>
+            {activeStationId && (
+              <button 
+                onClick={() => setActiveStationId(null)}
+                style={{
+                  padding: '0 16px',
+                  backgroundColor: '#3b4a5e',
+                  border: 'none',
+                  borderRadius: '100px',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5b71'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b4a5e'}
+              >
+                ดูหน้าทั้งหมด
+              </button>
+            )}
           </div>
 
           <div className={styles.panelTableHeader}>
             <span className={styles.panelColName}>ชื่อสถานี</span>
-            <span className={styles.panelColDetail}>ตำแหน่ง</span>
+            <span className={styles.panelColDetail}>สถานะ (ระดับน้ำ)</span>
           </div>
 
           <div className={styles.panelStationList}>
@@ -319,8 +380,23 @@ const StationPage: React.FC = () => {
                   style={{ cursor: 'pointer', background: activeStationId === station.id ? 'var(--color-bg-surface)' : 'transparent' }}
                 >
                   <span className={styles.panelStationName}>{station.name}</span>
-                  <span className={styles.panelStationLocation}>
-                    {`${Number(station.lat).toFixed(4)}, ${Number(station.lng).toFixed(4)}`}
+                  <span className={styles.panelStationLocation} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: station.status === 'critical' ? '#ef4444' : station.status === 'warning' ? '#f59e0b' : station.status === 'offline' ? '#94a3b8' : '#10b981',
+                      boxShadow: station.status === 'critical' || station.status === 'warning' ? `0 0 8px ${station.status === 'critical' ? '#ef4444' : '#f59e0b'}` : 'none'
+                    }}></div>
+                    <span style={{ 
+                      color: station.status === 'critical' ? '#ef4444' : station.status === 'warning' ? '#f59e0b' : station.status === 'offline' ? '#94a3b8' : '#10b981',
+                      fontSize: '13px'
+                    }}>
+                      {station.status === 'critical' ? 'วิกฤต' : station.status === 'warning' ? 'เฝ้าระวัง' : station.status === 'offline' ? 'ออฟไลน์' : 'ปกติ'}
+                    </span>
+                    <span style={{ color: '#fff', fontWeight: 600, marginLeft: 'auto', fontSize: '13px' }}>
+                      {station.waterLevel ? `${station.waterLevel} ม.` : '-'}
+                    </span>
                   </span>
                 </div>
               ))
@@ -331,10 +407,24 @@ const StationPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ส่วนที่ 2: ตารางข้อมูล */}
+      {/* ส่วนที่ 2: ข้อมูลกราฟเชิงลึก (จะแสดงเมื่อมี activeStationId) */}
+      {!activeStationId ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: '#222b3a', borderRadius: '16px', border: '1px dashed #3b4a5e', margin: '0 auto', maxWidth: '1356px', width: 'calc(100% - 40px)' }}>
+          <i className="bi bi-geo-alt" style={{ fontSize: '48px', color: '#4b5563', marginBottom: '16px', display: 'block' }}></i>
+          <h3 style={{ color: '#94a3b8', margin: '0' }}>กรุณาคลิกเลือกสถานีบนแผนที่ หรือค้นหาในรายชื่อ เพื่อดูข้อมูลกราฟ</h3>
+        </div>
+      ) : (
+      <>
       <div className={styles.tableSection}>
+
+        <div className={styles.sectionHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>สถานะปัจจุบัน ({stationInfo?.customName || activeStationId})</h2>
+            <p className={styles.sectionSubtitle}>ข้อมูลล่าสุด ณ วันที่ {latestReportTime}</p>
+          </div>
+        </div>
+
         <div className={styles.tableHeader}>
-          <div className={styles.colSetting}></div>
           <div className={styles.colName}>ชื่อสถานี</div>
           <div className={styles.colTime}>เวลา</div>
           <div className={styles.colSignal}>สัญญาณ</div>
@@ -344,17 +434,24 @@ const StationPage: React.FC = () => {
         </div>
 
         <div className={styles.tableBody}>
-          {stationInfo ? (
+          {isLoading ? (
+            // --- Skeleton for Station Info ---
+            <div className={styles.stationRow} style={{ pointerEvents: 'none' }}>
+              <div className={styles.colName}><div className="skeleton skeleton-text" style={{ width: '150px', margin: 0 }}></div></div>
+              <div className={styles.colTime}><div className="skeleton skeleton-text" style={{ width: '50px', margin: 0 }}></div></div>
+              <div className={styles.colSignal}><div className="skeleton skeleton-circle" style={{ width: '24px', height: '24px', display: 'inline-block' }}></div></div>
+              <div className={styles.colBattery}><div className="skeleton skeleton-circle" style={{ width: '24px', height: '24px', display: 'inline-block' }}></div></div>
+              <div className={styles.colWater}><div className="skeleton skeleton-text" style={{ width: '60px', margin: 0 }}></div></div>
+              <div className={styles.colRain}><div className="skeleton skeleton-text" style={{ width: '60px', margin: 0 }}></div></div>
+            </div>
+          ) : stationInfo ? (
             <div className={styles.stationRow}>
-              <div className={styles.colSetting}>
-                <i className={`bi bi-gear ${styles.btnSetting}`}></i>
-              </div>
               <div className={styles.colName}>
                 {stationInfo.customName || stationInfo.monitorName || 'Unknown Station'}
               </div>
               <div className={styles.colTime}>
-                {latestReportTime
-                  ? new Date(latestReportTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                {latestReportTimeObj
+                  ? latestReportTimeObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
                   : '-'}
               </div>
               <div className={`${styles.colSignal} ${latestSignal === 'online' ? styles.iconGood : styles.iconBad}`}>
@@ -384,7 +481,12 @@ const StationPage: React.FC = () => {
           <div className={styles.chartHeaderRow}>
             <div className={styles.chartLegendRow}>
               {/* Legend เส้นระดับน้ำ */}
-              <div className={styles.legendItem}>
+              <div 
+                className={styles.legendItem} 
+                onClick={() => setShowWaterGraph(!showWaterGraph)}
+                style={{ cursor: 'pointer', opacity: showWaterGraph ? 1 : 0.5, transition: '0.2s' }}
+              >
+                <i className={`bi ${showWaterGraph ? 'bi-check-square-fill' : 'bi-square'}`} style={{ color: 'var(--color-status-critical)', marginRight: '8px' }}></i>
                 <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
                   <circle cx="4" cy="6" r="3" fill="#fff" stroke="var(--color-status-critical)" strokeWidth="2"/>
                   <line x1="7" y1="6" x2="17" y2="6" stroke="var(--color-status-critical)" strokeWidth="2"/>
@@ -393,7 +495,12 @@ const StationPage: React.FC = () => {
                 <span className={styles.legendText}>ระดับน้ำ (ม.)</span>
               </div>
               {/* Legend เส้นฝน */}
-              <div className={styles.legendItem}>
+              <div 
+                className={styles.legendItem}
+                onClick={() => setShowRainGraph(!showRainGraph)}
+                style={{ cursor: 'pointer', opacity: showRainGraph ? 1 : 0.5, transition: '0.2s' }}
+              >
+                <i className={`bi ${showRainGraph ? 'bi-check-square-fill' : 'bi-square'}`} style={{ color: 'var(--color-graf-rain)', marginRight: '8px' }}></i>
                 <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
                   <circle cx="4" cy="6" r="3" fill="#fff" stroke="var(--color-graf-rain)" strokeWidth="2"/>
                   <line x1="7" y1="6" x2="17" y2="6" stroke="var(--color-graf-rain)" strokeWidth="2"/>
@@ -402,7 +509,7 @@ const StationPage: React.FC = () => {
                 <span className={styles.legendText}>ปริมาณน้ำฝน (มม.)</span>
               </div>
               {/* Legend เส้น warning */}
-              {warningLevel > 0 && (
+              {warningLevel > 0 && showWaterGraph && (
                 <div className={styles.legendItem}>
                   <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
                     <line x1="0" y1="6" x2="24" y2="6" stroke="var(--color-status-warning)" strokeWidth="2" strokeDasharray="5 3"/>
@@ -414,24 +521,37 @@ const StationPage: React.FC = () => {
               )}
             </div>
 
-            {/* Time Range Tabs (ลำดับที่ 6) */}
-            <div className={styles.timeRangeTabs}>
-              {TIME_RANGE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`${styles.tabBtn} ${selectedRange === opt.value ? styles.tabActive : ''}`}
-                  onClick={() => setSelectedRange(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            {/* Time Range Tabs & Export Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className={styles.timeRangeTabs}>
+                {TIME_RANGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`${styles.tabBtn} ${selectedRange === opt.value ? styles.tabActive : ''}`}
+                    onClick={() => setSelectedRange(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={handleExportCSV} 
+                className={styles.tabBtn} 
+                style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', color: '#60a5fa' }}
+              >
+                <i className="bi bi-download" style={{ marginRight: '6px' }}></i>
+                ส่งออกข้อมูล (CSV)
+              </button>
             </div>
           </div>
 
           {/* กราฟรวม 2 เส้น dual Y-axis (ลำดับที่ 5) */}
           <div className={styles.chartBody} style={{ height: 300 }}>
+            {isLoading ? (
+              <div className="skeleton skeleton-box"></div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 20, right: 60, left: -10, bottom: 0 }}>
+              <ComposedChart data={chartData} margin={{ top: 20, right: 60, left: 10, bottom: 15 }}>
                 <defs>
                   <linearGradient id="fillWater" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor="var(--color-status-critical)" stopOpacity={0.25}/>
@@ -452,36 +572,43 @@ const StationPage: React.FC = () => {
                   stroke="var(--color-chart-axis)"
                   tickLine={false}
                   dy={8}
+                  label={{ value: 'เวลา (น.)', position: 'insideBottomRight', offset: -15, fill: '#8b95a5', fontSize: 12 }}
                 />
 
                 {/* แกน Y ซ้าย — ระดับน้ำ */}
-                <YAxis
-                  yAxisId="water"
-                  orientation="left"
-                  fontSize={11}
-                  stroke="var(--color-status-critical)"
-                  tickLine={false}
-                  axisLine={false}
-                  domain={[0, waterYMax]}
-                  tickFormatter={(v) => `${v}ม.`}
-                />
+                {showWaterGraph && (
+                  <YAxis
+                    yAxisId="water"
+                    orientation="left"
+                    fontSize={11}
+                    stroke="var(--color-status-critical)"
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, waterYMax]}
+                    tickFormatter={(v) => `${v}ม.`}
+                    label={{ value: 'ระดับน้ำ (ม.)', angle: -90, position: 'insideLeft', fill: '#8b95a5', fontSize: 12 }}
+                  />
+                )}
 
                 {/* แกน Y ขวา — ปริมาณฝน */}
-                <YAxis
-                  yAxisId="rain"
-                  orientation="right"
-                  fontSize={11}
-                  stroke="var(--color-graf-rain)"
-                  tickLine={false}
-                  axisLine={false}
-                  domain={[0, rainYMax]}
-                  tickFormatter={(v) => `${v}มม.`}
-                />
+                {showRainGraph && (
+                  <YAxis
+                    yAxisId="rain"
+                    orientation="right"
+                    fontSize={11}
+                    stroke="var(--color-graf-rain)"
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, rainYMax]}
+                    tickFormatter={(v) => `${v}มม.`}
+                    label={{ value: 'ปริมาณฝน (มม.)', angle: 90, position: 'insideRight', fill: '#8b95a5', fontSize: 12 }}
+                  />
+                )}
 
                 <Tooltip content={<CustomTooltip />} />
 
                 {/* เส้นเฝ้าระวัง (ถ้ามี) */}
-                {warningLevel > 0 && (
+                {warningLevel > 0 && showWaterGraph && (
                   <ReferenceLine
                     yAxisId="water"
                     y={warningLevel}
@@ -492,36 +619,43 @@ const StationPage: React.FC = () => {
                 )}
 
                 {/* Area ระดับน้ำ */}
-                <Area
-                  yAxisId="water"
-                  type="monotone"
-                  dataKey="water"
-                  name="ระดับน้ำ"
-                  stroke="var(--color-status-critical)"
-                  strokeWidth={2}
-                  fill="url(#fillWater)"
-                  dot={{ r: 3, fill: '#1e293b', stroke: 'var(--color-status-critical)', strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: 'var(--color-status-critical)', stroke: '#1e293b', strokeWidth: 2 }}
-                  connectNulls
-                />
+                {showWaterGraph && (
+                  <Area
+                    yAxisId="water"
+                    type="monotone"
+                    dataKey="water"
+                    name="ระดับน้ำ"
+                    stroke="var(--color-status-critical)"
+                    strokeWidth={2}
+                    fill="url(#fillWater)"
+                    dot={{ r: 3, fill: '#1e293b', stroke: 'var(--color-status-critical)', strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: 'var(--color-status-critical)', stroke: '#1e293b', strokeWidth: 2 }}
+                    connectNulls
+                  />
+                )}
 
                 {/* Line ปริมาณฝน */}
-                <Line
-                  yAxisId="rain"
-                  type="monotone"
-                  dataKey="rain"
-                  name="ปริมาณน้ำฝน"
-                  stroke="var(--color-graf-rain)"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#1e293b', stroke: 'var(--color-graf-rain)', strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: 'var(--color-graf-rain)', stroke: '#1e293b', strokeWidth: 2 }}
-                  connectNulls
-                />
+                {showRainGraph && (
+                  <Line
+                    yAxisId="rain"
+                    type="monotone"
+                    dataKey="rain"
+                    name="ปริมาณน้ำฝน"
+                    stroke="var(--color-graf-rain)"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#1e293b', stroke: 'var(--color-graf-rain)', strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: 'var(--color-graf-rain)', stroke: '#1e293b', strokeWidth: 2 }}
+                    connectNulls
+                  />
+                )}
               </ComposedChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

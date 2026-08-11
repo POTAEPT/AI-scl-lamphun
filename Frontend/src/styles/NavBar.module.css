@@ -11,7 +11,6 @@
 .contentArea {
   flex: 1;
   width: 100%;
-  max-width: 1440px;
   margin: 0 auto;
   padding: 24px 40px;
   box-sizing: border-box;
@@ -238,6 +237,29 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+.notificationItem {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-line);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  transition: background-color 0.2s;
+}
+.notificationItemUnread {
+  background-color: rgba(59, 130, 246, 0.1);
+  cursor: pointer;
+}
+.notificationItemUnread:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+.notificationItemRead {
+  background-color: transparent;
+  cursor: default;
+}
+.notificationItemRead:hover {
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .dropdownProfile {

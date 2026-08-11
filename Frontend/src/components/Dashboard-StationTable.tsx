@@ -1,12 +1,11 @@
 import React, { useMemo, useCallback } from "react";
-import type { DeviceRangeData } from "../service/deviceService";
+import { useNavigate } from "react-router-dom";
+import type { StationLatestInfo } from "../service/deviceService";
 import styles from "../styles/Dashboard-StationTable.module.css";
 
 interface StationTableProps {
-  waterData: DeviceRangeData[];
-  rainData: DeviceRangeData[];
+  latestStations: StationLatestInfo[];
   isLoading: boolean;
-  stationName?: string;
 }
 
 interface TableRowData {
@@ -16,11 +15,12 @@ interface TableRowData {
   waterLevel: string;
   rainfall: string;
   status: "normal" | "warning" | "critical";
-  rawTimestamp: string;
   signal: "online" | "offline";
+  warningLevel: number;
+  criticalLevel: number;
 }
 
-const ROW_LIMIT = 20;
+
 
 // --- StatusBadge sub-component ---
 const StatusBadge: React.FC<{ status: "normal" | "warning" | "critical" }> = ({ status }) => {
@@ -68,15 +68,17 @@ const BatteryIcon: React.FC<{ signal: "online" | "offline" }> = ({ signal }) => 
 
 // --- Main Component ---
 const StationTable: React.FC<StationTableProps> = React.memo(({
-  waterData,
-  rainData,
+  latestStations,
   isLoading,
-  stationName = "Unknown Station",
 }) => {
+  const navigate = useNavigate();
+  
   const tableData: TableRowData[] = useMemo(() => {
-    const dataMap = new Map<string, Partial<TableRowData>>();
+    const savedLevelsStr = localStorage.getItem('mock_warning_levels');
+    const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
 
     const formatDisplayTime = (isoString: string) => {
+      if (!isoString) return "-";
       try {
         const date = new Date(isoString);
         const today = new Date();
@@ -94,60 +96,52 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
       }
     };
 
-    const calculateStatus = (water: string): "normal" | "warning" | "critical" => {
-      const val = parseFloat(water);
-      if (isNaN(val)) return "normal";
-      if (val >= 5.0) return "critical";
-      if (val >= 4.5) return "warning";
-      return "normal";
-    };
+    const grouped = new Map<string, TableRowData>();
 
-    // สมมติว่าข้อมูลจริงๆ จะมี signal field; ตอนนี้ใช้ค่า default = online
-    for (const item of waterData) {
-      dataMap.set(item.monitorTime, {
-        rawTimestamp: item.monitorTime,
-        timestamp: formatDisplayTime(item.monitorTime),
-        waterLevel: parseFloat(item.monitorValue).toFixed(3),
-        rainfall: "-",
-        name: stationName,
-        signal: "online",
-      });
-    }
+    latestStations.forEach((item) => {
+      const isWater = item.monitorItem.toLowerCase().includes('water') || item.monitorItem.toLowerCase().includes('nw_');
+      const val = parseFloat(item.monitorValue) || 0;
+      
+      if (!grouped.has(item.stationId)) {
+        grouped.set(item.stationId, {
+          id: item.stationId,
+          name: item.stationName || item.stationId,
+          timestamp: formatDisplayTime(item.monitorTime),
+          waterLevel: "-",
+          rainfall: "-",
+          status: "normal",
+          signal: "online",
+          warningLevel: 4.5,
+          criticalLevel: 4.95
+        });
+      }
+      
+      const row = grouped.get(item.stationId)!;
+      
+      if (isWater) {
+        row.waterLevel = val.toFixed(3);
+        
+        const warningLevel = savedLevels[item.stationId] ?? 4.5;
+        const criticalLevel = parseFloat((warningLevel * 1.1).toFixed(2));
+        row.warningLevel = warningLevel;
+        row.criticalLevel = criticalLevel;
+        
+        if (val >= criticalLevel) row.status = "critical";
+        else if (val >= warningLevel) row.status = "warning";
+      } else {
+        // Rain
+        row.rainfall = val.toFixed(3);
+      }
+    });
 
-    for (const item of rainData) {
-      const existing = dataMap.get(item.monitorTime) || {
-        rawTimestamp: item.monitorTime,
-        timestamp: formatDisplayTime(item.monitorTime),
-        waterLevel: "-",
-        name: stationName,
-        signal: "online",
-      };
-      existing.rainfall = parseFloat(item.monitorValue).toFixed(3);
-      dataMap.set(item.monitorTime, existing);
-    }
-
-    return Array.from(dataMap.values())
-      .map(
-        (item) =>
-          ({
-            ...item,
-            id: item.rawTimestamp!,
-            status: calculateStatus(item.waterLevel as string),
-          }) as TableRowData,
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.rawTimestamp!).getTime() -
-          new Date(a.rawTimestamp!).getTime(),
-      )
-      .slice(0, ROW_LIMIT);
-  }, [waterData, rainData, stationName]);
+    return Array.from(grouped.values());
+  }, [latestStations]);
 
   const handleExportCSV = useCallback(() => {
     const headers = ["Station Name,Timestamp,Water Level (m),Rainfall (mm/h),Status"];
     const rows = tableData.map(
       (row) =>
-        `${row.name},${row.rawTimestamp},${row.waterLevel},${row.rainfall},${row.status}`,
+        `${row.name},${row.timestamp},${row.waterLevel},${row.rainfall},${row.status}`,
     );
     const csvContent =
       "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
@@ -174,15 +168,14 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
     return styles.valueNormal;
   };
 
-  if (isLoading) {
-    return <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>;
-  }
+  // ลบ if (isLoading) return ... ออก เพื่อให้ไป Render Skeleton ข้างล่างแทน
 
   return (
     <div className={styles.container}>
       <div className={styles.exportContainer}>
         <button onClick={handleExportCSV} className={styles.exportButton}>
-          Export CSV
+          <i className="bi bi-download" style={{ marginRight: '6px' }}></i>
+          ส่งออกภาพรวมทั้งหมด (CSV)
         </button>
       </div>
 
@@ -196,11 +189,29 @@ const StationTable: React.FC<StationTableProps> = React.memo(({
       </div>
 
       <div className={styles.tableBody}>
-        {tableData.length === 0 ? (
+        {isLoading ? (
+          // --- Skeleton Loading State ---
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={`skel-${i}`} className={`${styles.dataRow} ${styles.rowNormal}`} style={{ pointerEvents: 'none' }}>
+              <div className={styles.stationNameCell}>
+                <div className="skeleton skeleton-text" style={{ width: '120px', margin: 0 }}></div>
+              </div>
+              <div><div className="skeleton skeleton-text" style={{ width: '80px', margin: 0 }}></div></div>
+              <div className={styles.centerAlign}><div className="skeleton skeleton-circle" style={{ width: 20, height: 20 }}></div></div>
+              <div className={styles.centerAlign}><div className="skeleton skeleton-circle" style={{ width: 20, height: 20 }}></div></div>
+              <div className={styles.centerAlign}><div className="skeleton skeleton-text" style={{ width: '40px', margin: 0 }}></div></div>
+              <div className={styles.centerAlign}><div className="skeleton skeleton-text" style={{ width: '40px', margin: 0 }}></div></div>
+            </div>
+          ))
+        ) : tableData.length === 0 ? (
           <div className={styles.emptyText}>ไม่มีข้อมูลสถานี</div>
         ) : (
           tableData.map((row) => (
-            <div key={row.id} className={rowClass(row.status)}>
+            <div 
+              key={row.id} 
+              className={rowClass(row.status)}
+              onClick={() => navigate(`/station?id=${row.id}`)}
+            >
               {/* ชื่อสถานี + Badge */}
               <div className={styles.stationNameCell}>
                 <span className={styles.stationName}>{row.name}</span>

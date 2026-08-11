@@ -70,6 +70,7 @@ export interface StationLatestInfo extends StationDeviceInfo {
   monitorTime: string;
   signal: 'online' | 'offline';
   battery: number;
+  rainfall?: string;
 }
 
 const API_BASE_URL = '/api/v2/device';

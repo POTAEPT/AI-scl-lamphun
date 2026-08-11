@@ -6,13 +6,15 @@ interface DataCardProps {
   value: string | number; // ค่าข้อมูล
   unit: string;           // หน่วย
   theme?: 'orange' | 'blue'; // เลือกธีมสี (Default = orange)
+  subtitle?: string;      // คำอธิบายเพิ่มเติมใต้ตัวเลข
 }
 
 const DataCard: React.FC<DataCardProps> = ({ 
   title, 
   value, 
   unit, 
-  theme = 'orange' 
+  theme = 'orange',
+  subtitle
 }) => {
   
   // Logic เลือก Class สีตาม Theme ที่ส่งเข้ามา
@@ -34,6 +36,9 @@ const DataCard: React.FC<DataCardProps> = ({
           {unit}
         </span>
       </div>
+
+      {/* ส่วนคำอธิบายเพิ่มเติม */}
+      {subtitle && <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>{subtitle}</div>}
       
     </div>
   );
