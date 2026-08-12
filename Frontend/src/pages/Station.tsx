@@ -12,6 +12,7 @@ import {
   type DeviceRangeData,
   type StationLatestInfo,
 } from '../service/deviceService';
+import { useAuth } from '../contexts/AuthContext';
 import styles from '../styles/StationPage.module.css';
 
 // ---- Types ----
@@ -100,6 +101,7 @@ const CustomTooltip: React.FC<{
 
 // ---- Main Component ----
 const StationPage: React.FC = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const urlStationId = searchParams.get('id');
 
@@ -424,11 +426,15 @@ const StationPage: React.FC = () => {
           </div>
         </div>
 
-        <div className={styles.tableHeader}>
+        <div className={`${styles.tableHeader} ${user?.role !== 'admin' ? styles.gridUser : ''}`}>
           <div className={styles.colName}>ชื่อสถานี</div>
           <div className={styles.colTime}>เวลา</div>
-          <div className={styles.colSignal}>สัญญาณ</div>
-          <div className={styles.colBattery}>แบตเตอรี่</div>
+          {user?.role === 'admin' && (
+            <>
+              <div className={styles.colSignal}>สัญญาณ</div>
+              <div className={styles.colBattery}>แบตเตอรี่</div>
+            </>
+          )}
           <div className={styles.colWater}>ระดับน้ำ (ม.)</div>
           <div className={styles.colRain}>ปริมาณน้ำฝน (มม./ชม.)</div>
         </div>
@@ -436,16 +442,20 @@ const StationPage: React.FC = () => {
         <div className={styles.tableBody}>
           {isLoading ? (
             // --- Skeleton for Station Info ---
-            <div className={styles.stationRow} style={{ pointerEvents: 'none' }}>
+            <div className={`${styles.stationRow} ${user?.role !== 'admin' ? styles.gridUser : ''}`} style={{ pointerEvents: 'none' }}>
               <div className={styles.colName}><div className="skeleton skeleton-text" style={{ width: '150px', margin: 0 }}></div></div>
               <div className={styles.colTime}><div className="skeleton skeleton-text" style={{ width: '50px', margin: 0 }}></div></div>
-              <div className={styles.colSignal}><div className="skeleton skeleton-circle" style={{ width: '24px', height: '24px', display: 'inline-block' }}></div></div>
-              <div className={styles.colBattery}><div className="skeleton skeleton-circle" style={{ width: '24px', height: '24px', display: 'inline-block' }}></div></div>
+              {user?.role === 'admin' && (
+                <>
+                  <div className={styles.colSignal}><div className="skeleton skeleton-circle" style={{ width: '24px', height: '24px', display: 'inline-block' }}></div></div>
+                  <div className={styles.colBattery}><div className="skeleton skeleton-circle" style={{ width: '24px', height: '24px', display: 'inline-block' }}></div></div>
+                </>
+              )}
               <div className={styles.colWater}><div className="skeleton skeleton-text" style={{ width: '60px', margin: 0 }}></div></div>
               <div className={styles.colRain}><div className="skeleton skeleton-text" style={{ width: '60px', margin: 0 }}></div></div>
             </div>
           ) : stationInfo ? (
-            <div className={styles.stationRow}>
+            <div className={`${styles.stationRow} ${user?.role !== 'admin' ? styles.gridUser : ''}`}>
               <div className={styles.colName}>
                 {stationInfo.customName || stationInfo.monitorName || 'Unknown Station'}
               </div>
@@ -454,12 +464,16 @@ const StationPage: React.FC = () => {
                   ? latestReportTimeObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
                   : '-'}
               </div>
-              <div className={`${styles.colSignal} ${latestSignal === 'online' ? styles.iconGood : styles.iconBad}`}>
-                <i className={latestSignal === 'online' ? 'bi bi-reception-4' : 'bi bi-reception-1'}></i>
-              </div>
-              <div className={`${styles.colBattery} ${latestBattery > 0 ? styles.iconGood : styles.iconBad}`}>
-                <i className={latestBattery > 0 ? 'bi bi-battery-full' : 'bi bi-battery-empty'}></i>
-              </div>
+              {user?.role === 'admin' && (
+                <>
+                  <div className={`${styles.colSignal} ${latestSignal === 'online' ? styles.iconGood : styles.iconBad}`}>
+                    <i className={latestSignal === 'online' ? 'bi bi-reception-4' : 'bi bi-reception-1'}></i>
+                  </div>
+                  <div className={`${styles.colBattery} ${latestBattery > 0 ? styles.iconGood : styles.iconBad}`}>
+                    <i className={latestBattery > 0 ? 'bi bi-battery-full' : 'bi bi-battery-empty'}></i>
+                  </div>
+                </>
+              )}
               <div className={`${styles.colWater} ${getWaterStatusClass(parseFloat(latestWaterValue), styles)}`}>
                 {latestWaterValue}
               </div>

@@ -132,6 +132,10 @@
   transition: all 0.2s ease;
 }
 
+.gridUser {
+  grid-template-columns: 2fr 1fr 1.5fr 1.5fr !important;
+}
+
 .stationRow:hover {
   background: #283345;
   transform: translateY(-2px);

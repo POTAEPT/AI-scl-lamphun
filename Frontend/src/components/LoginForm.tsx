@@ -1,18 +1,12 @@
 import { useState } from 'react';
 import styles from '../styles/Form.module.css';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LoginFormProps {
   onLoginSuccess?: (userId: number) => void;
 }
 
-interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: {
-    id: number;
-    username: string;
-  };
-}
+// LoginResponse is not used in mock
 
 export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [identifier, setIdentifier] = useState("");
@@ -20,32 +14,22 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const { login } = useAuth();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/v2/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ identifier, password }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "เข้าสู่ระบบไม่สำเร็จ");
-      }
-
-      const data: LoginResponse = await response.json();
-
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
-
-      if (onLoginSuccess) {
-        onLoginSuccess(data.user.id);
+      if (identifier === "admin" && password === "admin") {
+        login({ id: 1, name: 'แอดมินระบบ', role: 'admin' }, 'mock-token-admin');
+        if (onLoginSuccess) onLoginSuccess(1);
+      } else if (identifier === "user" && password === "user") {
+        login({ id: 2, name: 'เจ้าหน้าที่ทั่วไป', role: 'user' }, 'mock-token-user');
+        if (onLoginSuccess) onLoginSuccess(2);
+      } else {
+        throw new Error("ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง (ลอง admin/admin หรือ user/user)");
       }
     } catch (err: any) {
       setError(err.message);
@@ -151,6 +135,9 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   Forgot your password?
                 </button>
               </div>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '16px', textAlign: 'center' }}>
+                * ทดสอบระบบ: ใช้ admin/admin หรือ user/user
+              </p>
             </form>
           </div>
         </div>

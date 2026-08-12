@@ -5,7 +5,7 @@ interface DataCardProps {
   title: string;          // ชื่อหัวข้อการ์ด
   value: string | number; // ค่าข้อมูล
   unit: string;           // หน่วย
-  theme?: 'orange' | 'blue'; // เลือกธีมสี (Default = orange)
+  theme?: 'orange' | 'blue' | 'red' | 'gray'; // เลือกธีมสี (Default = orange)
   subtitle?: string;      // คำอธิบายเพิ่มเติมใต้ตัวเลข
 }
 
@@ -18,8 +18,15 @@ const DataCard: React.FC<DataCardProps> = ({
 }) => {
   
   // Logic เลือก Class สีตาม Theme ที่ส่งเข้ามา
-  const borderClass = theme === 'orange' ? styles.themeOrange : styles.themeBlue;
-  const textClass = theme === 'orange' ? styles.textOrange : styles.textBlue;
+  const borderClass = theme === 'orange' ? styles.themeOrange 
+                    : theme === 'red' ? styles.themeRed 
+                    : theme === 'gray' ? styles.themeGray 
+                    : styles.themeBlue;
+                    
+  const textClass = theme === 'orange' ? styles.textOrange 
+                  : theme === 'red' ? styles.textRed 
+                  : theme === 'gray' ? styles.textGray 
+                  : styles.textBlue;
 
   return (
     <div className={`${styles.cardContainer} ${borderClass}`}>

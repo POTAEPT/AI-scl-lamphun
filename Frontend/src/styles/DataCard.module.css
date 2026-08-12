@@ -60,3 +60,17 @@
 .textBlue {
     color: var(--color-brand-secondary);
 }
+
+.themeRed {
+    border-top-color: var(--color-status-critical);
+}
+.textRed {
+    color: var(--color-status-critical);
+}
+
+.themeGray {
+    border-top-color: var(--color-text-secondary);
+}
+.textGray {
+    color: var(--color-text-secondary);
+}

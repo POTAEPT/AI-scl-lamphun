@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DeviceService } from '../service/deviceService';
+import { useAuth } from '../contexts/AuthContext';
 import styles from '../styles/SettingsPage.module.css';
 
 // ---- Types ----
@@ -18,15 +19,35 @@ interface SettingsStation {
 
 type SettingsTab = 'stations' | 'account';
 
+interface UserData {
+  id: number;
+  name: string;
+  role: 'admin' | 'user';
+  email: string;
+  lastLogin: string;
+}
+
+const INITIAL_MOCK_USERS: UserData[] = [
+  { id: 1, name: 'แอดมินระบบ', role: 'admin', email: 'admin@scl.com', lastLogin: 'วันนี้ 10:30 น.' },
+  { id: 2, name: 'เจ้าหน้าที่ทั่วไป', role: 'user', email: 'user@scl.com', lastLogin: 'วันนี้ 09:00 น.' },
+  { id: 3, name: 'สมชาย ใจดี', role: 'user', email: 'somchai@scl.com', lastLogin: 'เมื่อวาน' },
+];
+
 // ---- Sub: Sidebar ----
 const Sidebar: React.FC<{ activeTab: SettingsTab; onChange: (t: SettingsTab) => void }> = ({
   activeTab,
   onChange,
 }) => {
-  const items: { id: SettingsTab; icon: string; label: string; sub: string }[] = [
-    { id: 'stations', icon: 'bi-broadcast-pin',  label: 'จัดการสถานี',    sub: 'เพิ่ม / แก้ไข / ตั้งค่าระดับเตือน' },
-    { id: 'account',  icon: 'bi-person-circle',   label: 'บัญชีผู้ใช้',    sub: 'ข้อมูลและรหัสผ่าน' },
-  ];
+  const { user } = useAuth();
+  
+  const items: { id: SettingsTab; icon: string; label: string; sub: string }[] = [];
+  
+  if (user?.role === 'admin') {
+    items.push({ id: 'stations', icon: 'bi-broadcast-pin',  label: 'จัดการสถานี',    sub: 'เพิ่ม / แก้ไข / ตั้งค่าระดับเตือน' });
+    items.push({ id: 'account',  icon: 'bi-people',          label: 'จัดการผู้ใช้งาน',  sub: 'เพิ่ม / ลด / กำหนดสิทธิ์' });
+  } else {
+    items.push({ id: 'account',  icon: 'bi-person-circle',   label: 'โปรไฟล์ของฉัน',    sub: 'ข้อมูลบัญชี' });
+  }
 
   return (
     <aside className={styles.sidebar}>
@@ -310,68 +331,264 @@ const StationsTab: React.FC<{
 
 
 
-// ---- Tab: บัญชีผู้ใช้ ----
-const AccountTab: React.FC = () => {
-  const handleLogout = () => {
-    if (confirm('ต้องการออกจากระบบใช่หรือไม่?')) {
-      localStorage.clear();
-      window.location.reload();
+// ---- Tab: บัญชีผู้ใช้ / จัดการผู้ใช้งาน ----
+const AccountTab = () => {
+  const { user, logout } = useAuth();
+  
+  // States สำหรับจัดการรายชื่อผู้ใช้
+  const [users, setUsers] = useState<UserData[]>(INITIAL_MOCK_USERS);
+  
+  // States สำหรับ Modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  
+  // Form States
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formRole, setFormRole] = useState<'admin' | 'user'>('user');
+
+  // ---- ฟังก์ชันการลบ ----
+  const handleDelete = (id: number, name: string) => {
+    if (confirm(`คุณต้องการลบบัญชี "${name}" ใช่หรือไม่?`)) {
+      setUsers(users.filter(u => u.id !== id));
+      alert('ลบบัญชีเรียบร้อยแล้ว');
     }
   };
 
+  // ---- เปิดฟอร์มแก้ไข ----
+  const handleOpenEdit = (u: UserData) => {
+    setEditingUser(u);
+    setFormName(u.name);
+    setFormEmail(u.email);
+    setFormRole(u.role);
+    setShowEditModal(true);
+  };
+
+  // ---- ฟังก์ชันบันทึกข้อมูลแก้ไข ----
+  const handleSaveEdit = () => {
+    if (!formName.trim() || !formEmail.trim()) {
+      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    
+    setUsers(users.map(u => 
+      u.id === editingUser?.id 
+        ? { ...u, name: formName, email: formEmail, role: formRole }
+        : u
+    ));
+    
+    setShowEditModal(false);
+    setEditingUser(null);
+  };
+
+  // ---- เปิดฟอร์มเพิ่ม ----
+  const handleOpenAdd = () => {
+    setFormName('');
+    setFormEmail('');
+    setFormRole('user');
+    setShowAddModal(true);
+  };
+
+  // ---- ฟังก์ชันเพิ่มผู้ใช้ใหม่ ----
+  const handleAddUser = () => {
+    if (!formName.trim() || !formEmail.trim()) {
+      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    
+    const newUser: UserData = {
+      id: Date.now(), // ใช้ timestamp เป็น id จำลอง
+      name: formName,
+      email: formEmail,
+      role: formRole,
+      lastLogin: '-' // ผู้ใช้ใหม่ยังไม่เคยเข้าระบบ
+    };
+    
+    setUsers([...users, newUser]);
+    setShowAddModal(false);
+  };
+
+  if (user?.role !== 'admin') {
+    return (
+      <section className={styles.tabSection}>
+        <div className={styles.tabHeader}>
+          <div>
+            <h2 className={styles.tabTitle}>โปรไฟล์ของฉัน</h2>
+            <p className={styles.tabDesc}>ข้อมูลบัญชีของคุณ</p>
+          </div>
+        </div>
+
+        <div className={styles.accountCard}>
+          <div className={styles.accountAvatar}>
+            <i className="bi bi-person-fill" style={{ fontSize: 32, color: 'var(--color-text-onBrand)' }} />
+          </div>
+          <div className={styles.accountInfo}>
+            <div className={styles.accountName}>{user?.name}</div>
+            <div className={styles.accountRole}>
+              <i className="bi bi-person-badge" style={{ color: 'var(--color-text-secondary)', fontSize: 12 }} />
+              เจ้าหน้าที่ทั่วไป
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.accountRows}>
+          {[
+            { icon: 'bi-building', label: 'หน่วยงาน',       value: 'เทศบาล' },
+            { icon: 'bi-envelope',  label: 'อีเมล',          value: 'user@scl.com' },
+          ].map(({ icon, label, value }) => (
+            <div key={label} className={styles.accountRow}>
+              <i className={`bi ${icon}`} style={{ color: 'var(--color-text-secondary)', fontSize: 16, width: 20 }} />
+              <span className={styles.accountRowLabel}>{label}</span>
+              <span className={styles.accountRowValue}>{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.accountActions}>
+          <button className={styles.btnSecondary} onClick={logout}>
+            <i className="bi bi-box-arrow-right" />
+            ออกจากระบบ
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  // Admin View
   return (
     <section className={styles.tabSection}>
-      <div className={styles.tabHeader}>
+      <div className={styles.tabHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 className={styles.tabTitle}>บัญชีผู้ใช้</h2>
-          <p className={styles.tabDesc}>ข้อมูลบัญชีและการจัดการสิทธิ์</p>
+          <h2 className={styles.tabTitle}>จัดการผู้ใช้งานระบบ</h2>
+          <p className={styles.tabDesc}>ทั้งหมด {users.length} บัญชี</p>
         </div>
-      </div>
-
-      {/* Profile Card */}
-      <div className={styles.accountCard}>
-        <div className={styles.accountAvatar}>
-          <i className="bi bi-person-fill" style={{ fontSize: 32, color: 'var(--color-text-onBrand)' }} />
-        </div>
-        <div className={styles.accountInfo}>
-          <div className={styles.accountName}>เจ้าหน้าที่เทศบาล</div>
-          <div className={styles.accountRole}>
-            <i className="bi bi-shield-check-fill" style={{ color: 'var(--color-status-normal)', fontSize: 12 }} />
-            ผู้ดูแลระบบ
-          </div>
-        </div>
-      </div>
-
-      {/* Info rows */}
-      <div className={styles.accountRows}>
-        {[
-          { icon: 'bi-building', label: 'หน่วยงาน',       value: 'กองช่างสาธารณูปโภค' },
-          { icon: 'bi-telephone', label: 'เบอร์ติดต่อ',    value: '053-XXX-XXXX' },
-          { icon: 'bi-envelope',  label: 'อีเมล',          value: 'admin@municipality.go.th' },
-          { icon: 'bi-clock',     label: 'เข้าสู่ระบบล่าสุด', value: new Date().toLocaleDateString('th-TH', { dateStyle: 'long' }) },
-        ].map(({ icon, label, value }) => (
-          <div key={label} className={styles.accountRow}>
-            <i className={`bi ${icon}`} style={{ color: 'var(--color-text-secondary)', fontSize: 16, width: 20 }} />
-            <span className={styles.accountRowLabel}>{label}</span>
-            <span className={styles.accountRowValue}>{value}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Actions */}
-      <div className={styles.accountActions}>
-        <button className={styles.btnSecondary} onClick={handleLogout}>
-          <i className="bi bi-box-arrow-right" />
-          ออกจากระบบ
+        <button className={styles.btnPrimary} onClick={handleOpenAdd} style={{ padding: '8px 16px', fontSize: '13px' }}>
+          <i className="bi bi-person-plus-fill" style={{ marginRight: '6px' }} />
+          เพิ่มผู้ใช้งาน
         </button>
       </div>
+
+      <div style={{ marginTop: '24px', overflowX: 'auto', background: 'var(--color-bg-surface)', borderRadius: '12px', border: '1px solid var(--color-border-line)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--color-border-line)', color: 'var(--color-text-secondary)' }}>
+              <th style={{ padding: '16px', textAlign: 'left', fontWeight: 600 }}>ชื่อ - นามสกุล</th>
+              <th style={{ padding: '16px', textAlign: 'left', fontWeight: 600 }}>อีเมล</th>
+              <th style={{ padding: '16px', textAlign: 'left', fontWeight: 600 }}>สิทธิ์การใช้งาน</th>
+              <th style={{ padding: '16px', textAlign: 'left', fontWeight: 600 }}>เข้าสู่ระบบล่าสุด</th>
+              <th style={{ padding: '16px', textAlign: 'right', fontWeight: 600 }}>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id} style={{ borderBottom: '1px solid var(--color-border-line)' }}>
+                <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>
+                  <i className="bi bi-person-circle" style={{ marginRight: '8px', color: u.role === 'admin' ? '#f59e0b' : '#94a3b8' }}></i>
+                  {u.name}
+                  {u.id === user?.id && <span style={{ marginLeft: '8px', fontSize: '11px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', color: '#fff' }}>คุณ</span>}
+                </td>
+                <td style={{ padding: '16px', color: 'var(--color-text-secondary)' }}>{u.email}</td>
+                <td style={{ padding: '16px' }}>
+                  <span style={{ 
+                    padding: '4px 10px', 
+                    borderRadius: '100px', 
+                    fontSize: '12px', 
+                    fontWeight: 600,
+                    background: u.role === 'admin' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                    color: u.role === 'admin' ? '#f59e0b' : '#94a3b8'
+                  }}>
+                    {u.role === 'admin' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่ทั่วไป'}
+                  </span>
+                </td>
+                <td style={{ padding: '16px', color: 'var(--color-text-secondary)' }}>{u.lastLogin}</td>
+                <td style={{ padding: '16px', textAlign: 'right' }}>
+                  <button onClick={() => handleOpenEdit(u)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '4px 8px' }} title="แก้ไข">
+                    <i className="bi bi-pencil-square" />
+                  </button>
+                  <button onClick={() => handleDelete(u.id, u.name)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '4px 8px', opacity: u.id === user?.id ? 0.3 : 1 }} title="ลบ" disabled={u.id === user?.id}>
+                    <i className="bi bi-trash3" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* --- Add User Modal --- */}
+      {showAddModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowAddModal(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <span className={styles.modalTitle}>เพิ่มผู้ใช้งานใหม่</span>
+              <button className={styles.modalClose} onClick={() => setShowAddModal(false)}><i className="bi bi-x-lg" /></button>
+            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>ชื่อ - นามสกุล</label>
+                <input className={styles.formInput} placeholder="กรอกชื่อ" value={formName} onChange={e => setFormName(e.target.value)} />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>อีเมล</label>
+                <input className={styles.formInput} placeholder="example@email.com" value={formEmail} onChange={e => setFormEmail(e.target.value)} />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>สิทธิ์การใช้งาน</label>
+                <select className={styles.formInput} value={formRole} onChange={e => setFormRole(e.target.value as 'admin'|'user')}>
+                  <option value="user">เจ้าหน้าที่ทั่วไป</option>
+                  <option value="admin">ผู้ดูแลระบบ</option>
+                </select>
+              </div>
+            </div>
+            <div className={styles.modalFooter}>
+              <button className={styles.btnSecondary} onClick={() => setShowAddModal(false)}>ยกเลิก</button>
+              <button className={styles.btnPrimary} onClick={handleAddUser}>บันทึกข้อมูล</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Edit User Modal --- */}
+      {showEditModal && editingUser && (
+        <div className={styles.modalOverlay} onClick={() => setShowEditModal(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <span className={styles.modalTitle}>แก้ไขข้อมูลผู้ใช้งาน</span>
+              <button className={styles.modalClose} onClick={() => setShowEditModal(false)}><i className="bi bi-x-lg" /></button>
+            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>ชื่อ - นามสกุล</label>
+                <input className={styles.formInput} value={formName} onChange={e => setFormName(e.target.value)} />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>อีเมล</label>
+                <input className={styles.formInput} value={formEmail} onChange={e => setFormEmail(e.target.value)} />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>สิทธิ์การใช้งาน</label>
+                <select className={styles.formInput} value={formRole} onChange={e => setFormRole(e.target.value as 'admin'|'user')} disabled={editingUser.id === user?.id}>
+                  <option value="user">เจ้าหน้าที่ทั่วไป</option>
+                  <option value="admin">ผู้ดูแลระบบ</option>
+                </select>
+              </div>
+            </div>
+            <div className={styles.modalFooter}>
+              <button className={styles.btnSecondary} onClick={() => setShowEditModal(false)}>ยกเลิก</button>
+              <button className={styles.btnPrimary} onClick={handleSaveEdit}>อัปเดตข้อมูล</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
 
 // ---- Main Page ----
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('stations');
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(user?.role === 'admin' ? 'stations' : 'account');
   const [stations,  setStations]  = useState<SettingsStation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);

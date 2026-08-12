@@ -5,6 +5,8 @@ import Station from "../pages/Station";
 import styles from "../styles/NavBar.module.css";
 import SettingsPage from "../pages/SettingsPage";
 import { MOCK_ALERTS, type AlertLog } from "../data/mockData";
+import { useAuth } from '../contexts/AuthContext';
+import ProtectedRoute from './ProtectedRoute';
 
 // ---- Nav Items config ----
 const NAV_ITEMS = [
@@ -39,6 +41,7 @@ const NAV_ITEMS = [
         <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
       </svg>
     ),
+    requireAdmin: true,
   },
 ];
 
@@ -78,6 +81,7 @@ const SearchOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
 // ---- User Dropdown ----
 const UserDropdown: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { user, logout } = useAuth();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,29 +93,35 @@ const UserDropdown: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   }, [onClose]);
 
   const handleLogout = () => {
-    if (confirm("ต้องการออกจากระบบใช่หรือไม่?")) {
-      localStorage.clear();
-      window.location.reload();
-    }
+    logout();
   };
 
   return (
     <div className={styles.dropdown} ref={ref}>
-      {/* Profile */}
       <div className={styles.dropdownProfile}>
-        <div className={styles.dropdownAvatar}>จน</div>
+        <div className={styles.dropdownAvatar}>
+          <i className="bi bi-person-fill"></i>
+        </div>
         <div>
-          <div className={styles.dropdownName}>เจ้าหน้าที่เทศบาล</div>
-          <div className={styles.dropdownRole}>ผู้ดูแลระบบ</div>
+          <div className={styles.dropdownName}>{user?.name || 'Unknown'}</div>
+          <div className={styles.dropdownRole} style={{ 
+            fontSize: '12px', 
+            color: user?.role === 'admin' ? '#f59e0b' : '#94a3b8',
+            marginTop: '2px',
+            fontWeight: 500
+          }}>
+            {user?.role === 'admin' ? '[ผู้ดูแลระบบ]' : '[เจ้าหน้าที่ทั่วไป]'}
+          </div>
         </div>
       </div>
 
       <div className={styles.dropdownDivider} />
 
       <button className={styles.dropdownItem} onClick={handleLogout}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
         </svg>
+        ออกจากระบบ
       </button>
     </div>
   );
@@ -297,7 +307,10 @@ const Layout = () => {
         <Routes>
           <Route path="/"         element={<DashboardPage />} />
           <Route path="/station"  element={<Station />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'user']} />}>
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
         </Routes>
       </div>
     </div>
