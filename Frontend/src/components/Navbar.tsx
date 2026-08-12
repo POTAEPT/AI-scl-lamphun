@@ -214,13 +214,27 @@ const NotificationDropdown: React.FC<{
 // ---- MenuBar ----
 const MenuBar = () => {
   const location     = useLocation();
+  const { user }     = useAuth();
   const [showSearch, setShowSearch] = useState(false);
   const [showUser,   setShowUser]   = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [alerts, setAlerts] = useState<AlertLog[]>(MOCK_ALERTS);
-  
+
   // Checking unread alerts
   const hasAlert = alerts.some(a => !a.isRead);
+
+  // กรองเมนูตาม Role: ซ่อนเมนูที่ requireAdmin เมื่อ user ไม่ใช่ admin
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.requireAdmin && user?.role !== 'admin') {
+      return false;
+    }
+    return true;
+  });
+
+  // สร้างอักษรย่อสำหรับ Avatar จากชื่อผู้ใช้
+  const avatarInitials = user?.name
+    ? user.name.trim().charAt(0).toUpperCase()
+    : 'U';
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
@@ -233,9 +247,9 @@ const MenuBar = () => {
           <h1 className={styles.logoText}>Water Flow</h1>
         </div>
 
-        {/* 2. Menu */}
+        {/* 2. Menu: แสดงเฉพาะเมนูที่ user มีสิทธิ์เข้าถึง */}
         <div className={styles.menuGroup}>
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -266,15 +280,15 @@ const MenuBar = () => {
             {showNotifications && <NotificationDropdown onClose={() => setShowNotifications(false)} alerts={alerts} setAlerts={setAlerts} />}
           </div>
 
-          {/* User pill */}
+          {/* User pill: แสดงชื่อและ Avatar จาก AuthContext */}
           <div className={styles.userWrap}>
             <button
               className={styles.userBtn}
               onClick={() => setShowUser((v) => !v)}
               aria-label="เมนูผู้ใช้"
             >
-              <div className={styles.avatar}>จน</div>
-              <span className={styles.userName}>เจ้าหน้าที่</span>
+              <div className={styles.avatar}>{avatarInitials}</div>
+              <span className={styles.userName}>{user?.name ?? 'ผู้ใช้งาน'}</span>
               <svg
                 width="12"
                 height="12"

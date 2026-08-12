@@ -159,3 +159,38 @@
 .bgWarning { background-color: #f59e0b; }
 .bgNormal { background-color: #10b981; }
 .bgOffline { background-color: #94a3b8; }
+
+/* --- Hover Tooltip Styles --- */
+/* ใช้ :global() เพราะ Leaflet inject class ตรงๆ ไม่ผ่าน CSS Module hash */
+.mapContainer :global(.leaflet-tooltip.station-map-tooltip) {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #ffffff;
+}
+
+/* ซ่อน arrow ของ Leaflet Tooltip เดิม */
+.mapContainer :global(.leaflet-tooltip.station-map-tooltip::before) {
+  display: none;
+}
+
+.mapContainer :global(.leaflet-tooltip.station-map-tooltip .station-tooltip-name) {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.mapContainer :global(.leaflet-tooltip.station-map-tooltip .station-tooltip-water) {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #60a5fa;
+}

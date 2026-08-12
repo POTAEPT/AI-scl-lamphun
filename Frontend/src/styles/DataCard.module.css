@@ -74,3 +74,10 @@
 .textGray {
     color: var(--color-text-secondary);
 }
+
+.subtitle {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+    line-height: 1.4;
+}

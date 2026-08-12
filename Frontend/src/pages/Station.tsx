@@ -668,6 +668,56 @@ const StationPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ส่วนที่ 4: ตารางประวัติข้อมูล (History Table) — sync กับ time range ที่เลือก */}
+      <div className={styles.tableSection} style={{ marginTop: '32px' }}>
+        <div className={styles.sectionHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>ประวัติข้อมูล</h2>
+            <p className={styles.sectionSubtitle}>
+              แสดงข้อมูลย้อนหลัง {TIME_RANGE_OPTIONS.find(o => o.value === selectedRange)?.label} — {chartData.length} รายการ
+            </p>
+          </div>
+        </div>
+
+        {chartData.length === 0 ? (
+          <div className={styles.emptyMessage}>ไม่มีข้อมูลในช่วงเวลานี้</div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.historyTable}>
+              <thead>
+                <tr>
+                  <th className={styles.historyThTime}>เวลา</th>
+                  <th className={styles.historyThWater}>ระดับน้ำ (ม.)</th>
+                  <th className={styles.historyThRain}>ปริมาณน้ำฝน (มม./ชม.)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* เรียงจากใหม่ไปเก่า (reverse) เพื่อให้ข้อมูลล่าสุดอยู่บนสุด */}
+                {[...chartData].reverse().map((row, index) => (
+                  <tr key={`${row.time}-${index}`} className={styles.historyRow}>
+                    <td className={styles.historyTdTime}>{row.time} น.</td>
+                    <td className={styles.historyTdWater}>
+                      {row.water !== null
+                        ? <span className={row.water >= (warningLevel * 1.1) ? styles.statusCritical : row.water >= warningLevel ? styles.statusWarning : styles.statusNormal}>
+                            {row.water.toFixed(3)}
+                          </span>
+                        : <span style={{ color: '#475569' }}>-</span>
+                      }
+                    </td>
+                    <td className={styles.historyTdRain}>
+                      {row.rain !== null
+                        ? row.rain.toFixed(3)
+                        : <span style={{ color: '#475569' }}>-</span>
+                      }
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
       </>
       )}
     </div>

@@ -264,6 +264,95 @@
   font-size: 14px;
 }
 
+/* Section Header */
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+}
+
+.sectionSubtitle {
+  font-size: 13px;
+  color: #8b95a5;
+  margin: 0;
+}
+
+/* ===== ส่วนที่ 4: ตารางประวัติข้อมูล ===== */
+.tableWrap {
+  background: #222b3a;
+  border: 1px solid #2d3748;
+  border-radius: 12px;
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.historyTable thead tr {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid #2d3748;
+}
+
+.historyTable th {
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b95a5;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.historyThTime  { width: 120px; }
+.historyThWater { text-align: right; }
+.historyThRain  { text-align: right; }
+
+.historyRow {
+  border-bottom: 1px solid rgba(45, 55, 72, 0.6);
+  transition: background 0.12s;
+}
+
+.historyRow:last-child { border-bottom: none; }
+.historyRow:hover { background: rgba(255, 255, 255, 0.03); }
+
+.historyTdTime {
+  padding: 10px 20px;
+  color: #8b95a5;
+  font-size: 13px;
+  font-family: var(--font-data, 'Inter', monospace);
+  white-space: nowrap;
+}
+
+.historyTdWater {
+  padding: 10px 20px;
+  text-align: right;
+  font-weight: 700;
+  font-size: 14px;
+  font-family: var(--font-data, 'Inter', monospace);
+}
+
+.historyTdRain {
+  padding: 10px 20px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: var(--font-data, 'Inter', monospace);
+  color: var(--color-graf-rain, #60a5fa);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .topSection, .chartSection { grid-template-columns: 1fr; }

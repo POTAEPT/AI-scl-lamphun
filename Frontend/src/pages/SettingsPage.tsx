@@ -334,26 +334,44 @@ const StationsTab: React.FC<{
 // ---- Tab: บัญชีผู้ใช้ / จัดการผู้ใช้งาน ----
 const AccountTab = () => {
   const { user, logout } = useAuth();
-  
+
   // States สำหรับจัดการรายชื่อผู้ใช้
   const [users, setUsers] = useState<UserData[]>(INITIAL_MOCK_USERS);
-  
+
   // States สำหรับ Modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
-  
+  // State สำหรับ Modal ยืนยันการลบ (แทนการใช้ browser confirm)
+  const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
+  // State สำหรับ Toast แจ้งผล (ใช้ร่วมกับ Toast Component ที่มีอยู่แล้ว)
+  const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
   // Form States
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formRole, setFormRole] = useState<'admin' | 'user'>('user');
 
-  // ---- ฟังก์ชันการลบ ----
-  const handleDelete = (id: number, name: string) => {
-    if (confirm(`คุณต้องการลบบัญชี "${name}" ใช่หรือไม่?`)) {
-      setUsers(users.filter(u => u.id !== id));
-      alert('ลบบัญชีเรียบร้อยแล้ว');
+  // Helper: แสดง Toast แล้วซ่อนอัตโนมัติใน 3 วินาที
+  const showLocalToast = (message: string, type: 'success' | 'error') => {
+    setLocalToast({ message, type });
+    setTimeout(() => setLocalToast(null), 3000);
+  };
+
+  // ---- ฟังก์ชันการลบ: เปิด Modal ยืนยันแทน browser confirm ----
+  const handleDelete = (id: number) => {
+    const targetUser = users.find(u => u.id === id);
+    if (targetUser) {
+      setDeleteTarget(targetUser);
     }
+  };
+
+  // ---- ยืนยันการลบจริงๆ (เรียกจาก Modal ยืนยัน) ----
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    setUsers(users.filter(u => u.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    showLocalToast(`ลบบัญชี "${deleteTarget.name}" เรียบร้อยแล้ว`, 'success');
   };
 
   // ---- เปิดฟอร์มแก้ไข ----
@@ -368,18 +386,19 @@ const AccountTab = () => {
   // ---- ฟังก์ชันบันทึกข้อมูลแก้ไข ----
   const handleSaveEdit = () => {
     if (!formName.trim() || !formEmail.trim()) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+      showLocalToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
       return;
     }
-    
-    setUsers(users.map(u => 
-      u.id === editingUser?.id 
+
+    setUsers(users.map(u =>
+      u.id === editingUser?.id
         ? { ...u, name: formName, email: formEmail, role: formRole }
         : u
     ));
-    
+
     setShowEditModal(false);
     setEditingUser(null);
+    showLocalToast('อัปเดตข้อมูลสำเร็จ', 'success');
   };
 
   // ---- เปิดฟอร์มเพิ่ม ----
@@ -393,20 +412,21 @@ const AccountTab = () => {
   // ---- ฟังก์ชันเพิ่มผู้ใช้ใหม่ ----
   const handleAddUser = () => {
     if (!formName.trim() || !formEmail.trim()) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+      showLocalToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
       return;
     }
-    
+
     const newUser: UserData = {
       id: Date.now(), // ใช้ timestamp เป็น id จำลอง
       name: formName,
       email: formEmail,
       role: formRole,
-      lastLogin: '-' // ผู้ใช้ใหม่ยังไม่เคยเข้าระบบ
+      lastLogin: '-', // ผู้ใช้ใหม่ยังไม่เคยเข้าระบบ
     };
-    
+
     setUsers([...users, newUser]);
     setShowAddModal(false);
+    showLocalToast(`เพิ่มบัญชี "${formName}" เรียบร้อยแล้ว`, 'success');
   };
 
   if (user?.role !== 'admin') {
@@ -506,7 +526,7 @@ const AccountTab = () => {
                   <button onClick={() => handleOpenEdit(u)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '4px 8px' }} title="แก้ไข">
                     <i className="bi bi-pencil-square" />
                   </button>
-                  <button onClick={() => handleDelete(u.id, u.name)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '4px 8px', opacity: u.id === user?.id ? 0.3 : 1 }} title="ลบ" disabled={u.id === user?.id}>
+                  <button onClick={() => handleDelete(u.id)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '4px 8px', opacity: u.id === user?.id ? 0.3 : 1 }} title="ลบ" disabled={u.id === user?.id}>
                     <i className="bi bi-trash3" />
                   </button>
                 </td>
@@ -581,9 +601,44 @@ const AccountTab = () => {
           </div>
         </div>
       )}
+
+      {/* --- Delete Confirmation Modal (แทน browser confirm) --- */}
+      {deleteTarget && (
+        <div className={styles.modalOverlay} onClick={() => setDeleteTarget(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <span className={styles.modalTitle}>ยืนยันการลบบัญชี</span>
+              <button className={styles.modalClose} onClick={() => setDeleteTarget(null)}><i className="bi bi-x-lg" /></button>
+            </div>
+            <div className={styles.modalBody}>
+              <p style={{ color: 'var(--color-text-primary)', margin: 0 }}>
+                คุณต้องการลบบัญชี <strong>"{deleteTarget.name}"</strong> ออกจากระบบใช่หรือไม่?
+              </p>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginTop: '8px' }}>
+                การกระทำนี้ไม่สามารถยกเลิกได้
+              </p>
+            </div>
+            <div className={styles.modalFooter}>
+              <button className={styles.btnSecondary} onClick={() => setDeleteTarget(null)}>ยกเลิก</button>
+              <button
+                className={styles.btnPrimary}
+                style={{ background: 'var(--color-status-critical)' }}
+                onClick={handleConfirmDelete}
+              >
+                <i className="bi bi-trash3" style={{ marginRight: '6px' }} />
+                ลบบัญชี
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Local Toast สำหรับ AccountTab --- */}
+      {localToast && <Toast message={localToast.message} type={localToast.type} />}
     </section>
   );
 };
+
 
 // ---- Main Page ----
 const SettingsPage = () => {

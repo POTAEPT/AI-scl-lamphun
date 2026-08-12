@@ -45,7 +45,7 @@ const DataCard: React.FC<DataCardProps> = ({
       </div>
 
       {/* ส่วนคำอธิบายเพิ่มเติม */}
-      {subtitle && <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>{subtitle}</div>}
+      {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
       
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import styles from '../styles/MapView.module.css';
@@ -96,6 +96,23 @@ function MapView({ stations = [], selectedStationId, onStationClick }: MapViewPr
               click: () => onStationClick?.(String(station.id))
             }}
           >
+            {/* Tooltip แสดงชื่อสถานีตอน hover เมาส์ (ก่อนคลิก) */}
+            {/* ใช้ global class string เพราะ Leaflet render นอก React DOM ทำให้ CSS Module ไม่ทำงาน */}
+            <Tooltip
+              direction="top"
+              offset={[0, -14]}
+              opacity={1}
+              permanent={false}
+              className="station-map-tooltip"
+            >
+              <span className="station-tooltip-name">{station.name}</span>
+              {station.waterLevel !== undefined && (
+                <span className="station-tooltip-water">
+                  {station.waterLevel} ม.
+                </span>
+              )}
+            </Tooltip>
+
             <Popup minWidth={180}>
               <div className={styles.popupContainer}>
                 <h4 className={styles.popupTitle}>{station.name}</h4>

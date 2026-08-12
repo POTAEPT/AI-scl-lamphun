@@ -10,8 +10,8 @@ import DataCard from '../components/DataCard';
 
 import styles from '../styles/DashboradPage.module.css';
 
-// *** ตัวสลับโหมด ***
-const USE_MOCK_DATA = true;
+// Threshold: อุปกรณ์ที่ไม่ส่งข้อมูลเกิน 24 ชม. ถือว่า offline (Heartbeat Timeout)
+const OFFLINE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 const DashboardPage = () => {
     const { user } = useAuth();
@@ -19,53 +19,51 @@ const DashboardPage = () => {
     const [waterSubtitle, setWaterSubtitle] = useState<string>("");
     const [rainValue,  setRainValue]  = useState<string>("---");
 
-    // waterHistory and rainHistory are no longer used since we only use latestStations for the dashboard.
-
     const [latestStations, setLatestStations] = useState<StationLatestInfo[]>([]);
-
     const [isLoading, setIsLoading] = useState<boolean>(false);
-
-
-    
     const [alertCounts, setAlertCounts] = useState({ critical: 0, warning: 0 });
     const [stationStats, setStationStats] = useState({ water: 0, rain: 0 });
+    // offlineCount: นับจากสถานีที่ไม่ได้ส่งข้อมูลเกิน 24 ชม. (Heartbeat Timeout)
+    const [offlineCount, setOfflineCount] = useState<number>(0);
 
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                let latestRes;
-
-                if (USE_MOCK_DATA) {
-                    const results = await Promise.all([
-                        DeviceService.getLatestStations()
-                    ]);
-                    latestRes = results[0];
-                } else {
-                    const results = await Promise.all([
-                        DeviceService.getLatestStations()
-                    ]);
-                    latestRes = results[0];
-                }
+                // ดึงข้อมูลล่าสุดจาก API
+                const latestRes = await DeviceService.getLatestStations();
 
                 // --- ตรวจสอบ Alert และคำนวณค่าสูงสุด/เฉลี่ยจากข้อมูลล่าสุดของทุกสถานี ---
                 if (latestRes && latestRes.length > 0) {
                     const savedLevelsStr = localStorage.getItem('mock_warning_levels');
                     const savedLevels = savedLevelsStr ? JSON.parse(savedLevelsStr) : {};
+                    const now = Date.now();
+
                     let warning = 0;
                     let critical = 0;
                     let maxWater = -Infinity;
                     let maxWaterStationName = "";
                     let totalRain = 0;
                     let rainCount = 0;
-                    
                     let waterStationCount = 0;
                     let rainStationCount = 0;
-                    
+
+                    // เก็บเวลาล่าสุดที่รายงานของแต่ละสถานี (ใช้ stationId เป็น key)
+                    const stationLatestTime = new Map<string, number>();
+
                     latestRes.forEach((s: any) => {
+                        // ติดตามเวลาล่าสุดที่ส่งข้อมูลของแต่ละสถานี
+                        if (s.monitorTime) {
+                            const reportTime = new Date(s.monitorTime).getTime();
+                            const currentBest = stationLatestTime.get(s.stationId) ?? 0;
+                            if (reportTime > currentBest) {
+                                stationLatestTime.set(s.stationId, reportTime);
+                            }
+                        }
+
                         const val = parseFloat(s.monitorValue) || 0;
                         const isWater = s.monitorItem.toLowerCase().includes('water') || s.monitorItem.toLowerCase().includes('nw_');
-                        
+
                         if (isWater) {
                             waterStationCount++;
                             const wLevel = savedLevels[s.stationId] ?? 4.5;
@@ -86,7 +84,16 @@ const DashboardPage = () => {
                             }
                         }
                     });
-                    
+
+                    // นับจำนวนสถานีออฟไลน์จาก Heartbeat Timeout (ไม่ส่งข้อมูลเกิน 24 ชม.)
+                    let computedOfflineCount = 0;
+                    stationLatestTime.forEach((lastTime) => {
+                        if (now - lastTime > OFFLINE_THRESHOLD_MS) {
+                            computedOfflineCount++;
+                        }
+                    });
+                    setOfflineCount(computedOfflineCount);
+
                     // --- การเรียงลำดับความสำคัญ (Sorting by Severity) ---
                     // ให้ความสำคัญกับสถานีที่วิกฤต (Critical) > เฝ้าระวัง (Warning) > ปกติ (Normal)
                     latestRes.sort((a: any, b: any) => {
@@ -135,13 +142,18 @@ const DashboardPage = () => {
                             criticalCount={alertCounts.critical}
                             warningCount={alertCounts.warning}
                         />
-                        
+
                         {/* 2. การจัดเรียงตามสิทธิ์ (Role-Based Rendering) */}
                         {user?.role === 'admin' ? (
                             <>
-                                {/* Admin: โชว์ปัญหาฮาร์ดแวร์ก่อน เพื่อซ่อมบำรุง */}
-                                <DataCard title="สถานีออฟไลน์" value={2} unit="สถานี" theme="red" subtitle="ขาดการติดต่อเกิน 24 ชม." />
-                                <DataCard title="แบตเตอรี่ต่ำ" value={1} unit="สถานี" theme="orange" subtitle="แรงดันต่ำกว่า 11.5V" />
+                                {/* Admin: โชว์สถานีออฟไลน์ (คำนวณจาก Heartbeat Timeout จริงๆ) ตามด้วยข้อมูลน้ำ */}
+                                <DataCard
+                                    title="สถานีออฟไลน์"
+                                    value={offlineCount}
+                                    unit="สถานี"
+                                    theme={offlineCount > 0 ? 'red' : 'blue'}
+                                    subtitle="ไม่ได้รับข้อมูลเกิน 24 ชั่วโมง"
+                                />
                                 <DataCard title="ระดับน้ำสูงสุด" value={waterValue} unit="เมตร" theme="blue" subtitle={waterSubtitle} />
                                 <DataCard title="ปริมาณน้ำฝนเฉลี่ย" value={rainValue} unit="มม./ชม." theme="blue" subtitle="ข้อมูลจากทุกสถานี" />
                             </>
@@ -151,12 +163,10 @@ const DashboardPage = () => {
                                 <DataCard title="ระดับน้ำสูงสุด" value={waterValue} unit="เมตร" theme="orange" subtitle={waterSubtitle} />
                                 <DataCard title="ปริมาณน้ำฝนเฉลี่ย" value={rainValue} unit="มม./ชม." theme="blue" subtitle="ข้อมูลจากทุกสถานี" />
                                 <DataCard title="จำนวนสถานีทั้งหมด" value={latestStations.length || 1} unit="สถานี" theme="blue" subtitle={`(วัดระดับน้ำ: ${stationStats.water} / วัดปริมาณฝน: ${stationStats.rain})`} />
-                                
-                                {/* User: ปัญหาฮาร์ดแวร์ เอาไว้ท้ายสุดให้พอรู้ (สีเทาๆ หรือสีที่โดดเด่นน้อยลง) */}
                             </>
                         )}
 
-                        {/* Admin Total Card (User has it above) */}
+                        {/* Admin: การ์ดสรุปจำนวนสถานีทั้งหมด */}
                         {user?.role === 'admin' && (
                             <DataCard
                                 title="จำนวนสถานีทั้งหมด"
