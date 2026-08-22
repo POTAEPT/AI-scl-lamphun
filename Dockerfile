@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build Frontend
 # ==========================================
-FROM oven/bun:1-alpine AS build-frontend
+FROM docker.io/oven/bun:1-alpine AS build-frontend
 WORKDIR /app/frontend
 COPY Frontend/package.json Frontend/bun.lock ./
 RUN bun install --frozen-lockfile
@@ -11,7 +11,7 @@ RUN bun run build
 # ==========================================
 # Stage 2: Final Runtime (รวม Backend + Frontend Dist)
 # ==========================================
-FROM oven/bun:1-alpine
+FROM docker.io/oven/bun:1-alpine
 
 WORKDIR /app
 

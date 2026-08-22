@@ -70,3 +70,7 @@ pm_roadmap.md
 project_overview.md
 docs/design_system.md
 AGENTS.md
+-e 
+# Infisical workspace config
+.infisical.json
+.cptr
